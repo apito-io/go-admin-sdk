@@ -107,19 +107,29 @@ func (c *Client) executeGraphQL(ctx context.Context, query string, variables map
 	return &response, nil
 }
 
-// GenerateTenantToken generates a new tenant token for the specified tenant ID
+// GenerateTenantToken generates a new tenant-scoped API key for the given tenant_id.
+//
+// Authentication uses the client's Config.APIKey (X-Apito-Key). The token argument is
+// legacy and ignored; it was used by an older engine mutation that accepted token inline.
+//
+// duration is sent to the engine as the token expiry calendar day (YYYY-MM-DD). If empty,
+// a default of one year from UTC today is used.
 func (c *Client) GenerateTenantToken(ctx context.Context, token string, tenantID string) (string, error) {
+	_ = token // legacy parameter; engine identifies caller from X-Apito-Key
+
+	duration := time.Now().UTC().AddDate(1, 0, 0).Format("2006-01-02")
+
 	query := `
-		mutation GenerateTenantToken($token: String!, $tenantId: String!) {
-			generateTenantToken(token: $token, tenant_id: $tenantId) {
+		mutation GenerateTenantToken($tenantId: String!, $duration: String!) {
+			generateTenantToken(tenant_id: $tenantId, duration: $duration) {
 				token
 			}
 		}
 	`
 
 	variables := map[string]interface{}{
-		"token":    token,
 		"tenantId": tenantID,
+		"duration": duration,
 	}
 
 	response, err := c.executeGraphQL(ctx, query, variables)

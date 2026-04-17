@@ -44,7 +44,7 @@ func main() {
 	// Initialize the client with environment variables
 	client := goapitosdk.NewClient(goapitosdk.Config{
 		BaseURL: getEnv("APITO_BASE_URL", "https://api.apito.io/graphql"),
-		APIKey:  getEnv("APITO_API_KEY", ""),
+		APIKey:  getEnv("APITO_API_KEY", "ak_JWOOEMJ3YLSWVE43YZ75ACSET2LK6CT6BTBKEHKPMUUYSXL4YC7TZQLEM7SZZFHOS6A3DFLXL6YNEXJKZOBLLBJKBORXOCRPOYAXSOEXTS6DTEGUR4LDMITB55TYAMWZFE6FENS35WMPXI2FDHTLN3ZDMFOOQT5ITWT2GA37MR5P2NIQPNI6TAIMZPM5W6UBLD3A"),
 		Timeout: 30 * time.Second,
 	})
 
