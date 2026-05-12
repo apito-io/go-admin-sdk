@@ -5,6 +5,44 @@ All notable changes to the Go Apito SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.1] - 2026-05-13
+
+### Fixed
+
+- **Examples**: `examples/main.go` and `examples/tenant_users` now import **`github.com/apito-io/go-internal-sdk`** (the module path), not the non-existent `go-admin-sdk` path, so `go mod tidy` and `go test ./...` work from a clean checkout.
+
+### Changed (breaking)
+
+- **`GenerateTenantToken`**: signature is now **`(ctx, tenantID, duration, role string)`**, aligned with engine `generateTenantToken` (`tenant_id`, `duration`, optional `role`). Removed the unused legacy **`token`** first argument. Empty **`duration`** still selects the default one-year-ahead expiry in UTC.
+- **`github.com/apito-io/types`** `InternalSDKOperation` updated in lockstep. **`go.mod`** requires **`github.com/apito-io/types v0.1.10`** or newer.
+
+## [1.5.0] - 2026-05-09
+
+### Changed (breaking)
+
+- **`SearchTenantsByDomain`**: signature is now `(ctx, projectID, domain)` only (no pagination). Response type renamed to **`TenantByDomainResponse`** with a single nullable **`Tenant`** field (exact per-project domain match; was list + count).
+
+### Engine parity (documented)
+
+- System GraphQL **`searchTenantsByDomain`** returns a single nullable **`tenant`** (no list/count). **`createTenant`** optional **`domain`** is rejected when that domain is already taken in the project; **`updateTenant`** enforces the same when **`domain`** is set to a non-empty value.
+
+## [1.4.0] - 2026-05-09
+
+### Added
+
+- **Pro tenant catalog search by domain**: `SearchTenantsByDomain`; types `TenantCatalogSearchRow`, `TenantsByDomainResponse` (engine `searchTenantsByDomain` on system GraphQL).
+
+## [1.3.0] - 2026-05-08
+
+### Added
+
+- **Pro tenant catalog users** (Apito Pro system GraphQL): `LoginTenantUser`, `LoginTenantUserGoogle`, `SearchTenantUsers`, `CreateTenantUser`; types `TenantUser`, `TenantLoginResponse`, `TenantUsersResponse`.
+- **`examples/tenant_users`**: minimal runnable sample using env `APITO_BASE_URL`, `APITO_API_KEY`, `APITO_PROJECT_ID` (optional `APITO_TENANT_USERNAME` / `APITO_TENANT_PASSWORD` for login).
+
+### Tests
+
+- **`TestTenantUserProIntegration`**: optional live checks when `APITO_PROJECT_ID` is set; skipped otherwise.
+
 ## [1.2.0] - 2024-12-30
 
 ### Added

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/apito-io/types"
@@ -50,7 +51,7 @@ func NewClient(config Config) *Client {
 
 // executeGraphQL executes a GraphQL query or mutation
 func (c *Client) executeGraphQL(ctx context.Context, query string, variables map[string]interface{}) (*types.GraphQLResponse, error) {
-	
+
 	var tenantID string
 	if ctx.Value("tenant_id") != nil {
 		tenantID = ctx.Value("tenant_id").(string)
@@ -75,7 +76,11 @@ func (c *Client) executeGraphQL(ctx context.Context, query string, variables map
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Apito-Key", c.apiKey)
+	if strings.HasPrefix(c.apiKey, "cli-") || strings.HasPrefix(c.apiKey, "sdk-") {
+		req.Header.Set("X-Apito-Sync-Key", c.apiKey)
+	} else {
+		req.Header.Set("X-Apito-Key", c.apiKey)
+	}
 	if tenantID != "" {
 		req.Header.Set("X-Apito-Tenant-ID", tenantID)
 	}
@@ -109,19 +114,23 @@ func (c *Client) executeGraphQL(ctx context.Context, query string, variables map
 
 // GenerateTenantToken generates a new tenant-scoped API key for the given tenant_id.
 //
-// Authentication uses the client's Config.APIKey (X-Apito-Key). The token argument is
-// legacy and ignored; it was used by an older engine mutation that accepted token inline.
+// Authentication uses the client's Config.APIKey (X-Apito-Key).
 //
-// duration is sent to the engine as the token expiry calendar day (YYYY-MM-DD). If empty,
-// a default of one year from UTC today is used.
-func (c *Client) GenerateTenantToken(ctx context.Context, token string, tenantID string) (string, error) {
-	_ = token // legacy parameter; engine identifies caller from X-Apito-Key
-
-	duration := time.Now().UTC().AddDate(1, 0, 0).Format("2006-01-02")
+// duration is the token expiry calendar day (YYYY-MM-DD), matching the engine mutation.
+// If duration is empty, a default of one calendar year ahead in UTC is used.
+//
+// role is optional; when empty the engine defaults the token role to "admin".
+func (c *Client) GenerateTenantToken(ctx context.Context, tenantID, duration, role string) (string, error) {
+	if strings.TrimSpace(tenantID) == "" {
+		return "", fmt.Errorf("tenantID is required")
+	}
+	if strings.TrimSpace(duration) == "" {
+		duration = time.Now().UTC().AddDate(1, 0, 0).Format("2006-01-02")
+	}
 
 	query := `
-		mutation GenerateTenantToken($tenantId: String!, $duration: String!) {
-			generateTenantToken(tenant_id: $tenantId, duration: $duration) {
+		mutation GenerateTenantToken($tenantId: String!, $duration: String!, $role: String) {
+			generateTenantToken(tenant_id: $tenantId, duration: $duration, role: $role) {
 				token
 			}
 		}
@@ -130,6 +139,11 @@ func (c *Client) GenerateTenantToken(ctx context.Context, token string, tenantID
 	variables := map[string]interface{}{
 		"tenantId": tenantID,
 		"duration": duration,
+	}
+	if strings.TrimSpace(role) != "" {
+		variables["role"] = role
+	} else {
+		variables["role"] = nil
 	}
 
 	response, err := c.executeGraphQL(ctx, query, variables)
@@ -153,6 +167,298 @@ func (c *Client) GenerateTenantToken(ctx context.Context, token string, tenantID
 	}
 
 	return tokenStr, nil
+}
+
+func withTenantCtx(ctx context.Context, tenantID string) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if strings.TrimSpace(tenantID) == "" {
+		return ctx
+	}
+	return context.WithValue(ctx, "tenant_id", tenantID)
+}
+
+func mapToTenantUser(m map[string]interface{}) *TenantUser {
+	if m == nil {
+		return nil
+	}
+	u := &TenantUser{}
+	if v, ok := m["id"].(string); ok {
+		u.ID = v
+	}
+	if v, ok := m["username"].(string); ok {
+		u.Username = v
+	}
+	if v, ok := m["email"].(string); ok {
+		u.Email = v
+	}
+	if v, ok := m["role"].(string); ok {
+		u.Role = v
+	}
+	if v, ok := m["tenant_id"].(string); ok {
+		u.TenantID = v
+	}
+	if v, ok := m["provider"].(string); ok {
+		u.Provider = v
+	}
+	if v, ok := m["status"].(string); ok {
+		u.Status = v
+	}
+	if v, ok := m["created_at"].(string); ok {
+		u.CreatedAt = v
+	}
+	if v, ok := m["updated_at"].(string); ok {
+		u.UpdatedAt = v
+	}
+	return u
+}
+
+func mapToTenantCatalogSearchRow(m map[string]interface{}) *TenantCatalogSearchRow {
+	if m == nil {
+		return nil
+	}
+	r := &TenantCatalogSearchRow{}
+	if v, ok := m["id"].(string); ok {
+		r.ID = v
+	}
+	if v, ok := m["name"].(string); ok {
+		r.Name = v
+	}
+	if v, ok := m["status"].(string); ok {
+		r.Status = v
+	}
+	if v, ok := m["domain"].(string); ok {
+		r.Domain = v
+	}
+	if v, ok := m["data"].(string); ok {
+		r.Data = v
+	}
+	return r
+}
+
+// LoginTenantUser runs the system GraphQL query loginTenantUser (tenant-scoped ak_ token on success).
+func (c *Client) LoginTenantUser(ctx context.Context, projectID, username, password string) (*TenantLoginResponse, error) {
+	query := `
+		query LoginTenantUser($project_id: String!, $username: String!, $password: String!) {
+			loginTenantUser(project_id: $project_id, username: $username, password: $password) {
+				token
+				user {
+					id
+					username
+					email
+					role
+					provider
+					tenant_id
+					status
+					created_at
+					updated_at
+				}
+			}
+		}
+	`
+	variables := map[string]interface{}{
+		"project_id": projectID,
+		"username":   username,
+		"password":   password,
+	}
+	response, err := c.executeGraphQL(ctx, query, variables)
+	if err != nil {
+		return nil, fmt.Errorf("loginTenantUser: %w", err)
+	}
+	data, ok := response.Data.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unexpected response format")
+	}
+	raw, ok := data["loginTenantUser"].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unexpected loginTenantUser response")
+	}
+	token, _ := raw["token"].(string)
+	var user *TenantUser
+	if um, ok := raw["user"].(map[string]interface{}); ok {
+		user = mapToTenantUser(um)
+	}
+	return &TenantLoginResponse{Token: token, User: user}, nil
+}
+
+// LoginTenantUserGoogle runs loginTenantUserGoogle with a Google ID token (audience must match project google_client_id).
+func (c *Client) LoginTenantUserGoogle(ctx context.Context, projectID, idToken string) (*TenantLoginResponse, error) {
+	query := `
+		mutation LoginTenantUserGoogle($project_id: String!, $id_token: String!) {
+			loginTenantUserGoogle(project_id: $project_id, id_token: $id_token) {
+				token
+				user {
+					id
+					username
+					email
+					role
+					provider
+					tenant_id
+					status
+					created_at
+					updated_at
+				}
+			}
+		}
+	`
+	variables := map[string]interface{}{
+		"project_id": projectID,
+		"id_token":   idToken,
+	}
+	response, err := c.executeGraphQL(ctx, query, variables)
+	if err != nil {
+		return nil, fmt.Errorf("loginTenantUserGoogle: %w", err)
+	}
+	data, ok := response.Data.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unexpected response format")
+	}
+	raw, ok := data["loginTenantUserGoogle"].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unexpected loginTenantUserGoogle response")
+	}
+	token, _ := raw["token"].(string)
+	var user *TenantUser
+	if um, ok := raw["user"].(map[string]interface{}); ok {
+		user = mapToTenantUser(um)
+	}
+	return &TenantLoginResponse{Token: token, User: user}, nil
+}
+
+// SearchTenantUsers lists tenant users for a project.
+func (c *Client) SearchTenantUsers(ctx context.Context, projectID string, limit, offset int) (*TenantUsersResponse, error) {
+	query := `
+		query SearchTenantUsers($project_id: String!, $limit: Int, $offset: Int) {
+			searchTenantUsers(project_id: $project_id, limit: $limit, offset: $offset) {
+				count
+				users {
+					id
+					username
+					email
+					role
+					provider
+					tenant_id
+					status
+					created_at
+					updated_at
+				}
+			}
+		}
+	`
+	variables := map[string]interface{}{
+		"project_id": projectID,
+		"limit":      limit,
+		"offset":     offset,
+	}
+	response, err := c.executeGraphQL(ctx, query, variables)
+	if err != nil {
+		return nil, fmt.Errorf("searchTenantUsers: %w", err)
+	}
+	data, ok := response.Data.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unexpected response format")
+	}
+	raw, ok := data["searchTenantUsers"].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unexpected searchTenantUsers response")
+	}
+	count := 0
+	if v, ok := raw["count"].(float64); ok {
+		count = int(v)
+	}
+	if v, ok := raw["count"].(int); ok {
+		count = v
+	}
+	var users []*TenantUser
+	if arr, ok := raw["users"].([]interface{}); ok {
+		for _, it := range arr {
+			if m, ok := it.(map[string]interface{}); ok {
+				users = append(users, mapToTenantUser(m))
+			}
+		}
+	}
+	return &TenantUsersResponse{Users: users, Count: count}, nil
+}
+
+// SearchTenantsByDomain returns the single SaaS catalog tenant for an exact domain match in the project, or nil tenant if none.
+func (c *Client) SearchTenantsByDomain(ctx context.Context, projectID, domain string) (*TenantByDomainResponse, error) {
+	query := `
+		query SearchTenantsByDomain($project_id: String!, $domain: String!) {
+			searchTenantsByDomain(project_id: $project_id, domain: $domain) {
+				tenant {
+					id
+					name
+					status
+					domain
+					data
+				}
+			}
+		}
+	`
+	variables := map[string]interface{}{
+		"project_id": projectID,
+		"domain":     domain,
+	}
+	response, err := c.executeGraphQL(ctx, query, variables)
+	if err != nil {
+		return nil, fmt.Errorf("searchTenantsByDomain: %w", err)
+	}
+	data, ok := response.Data.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unexpected response format")
+	}
+	raw, ok := data["searchTenantsByDomain"].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unexpected searchTenantsByDomain response")
+	}
+	if raw["tenant"] == nil {
+		return &TenantByDomainResponse{Tenant: nil}, nil
+	}
+	tm, ok := raw["tenant"].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unexpected searchTenantsByDomain.tenant response")
+	}
+	return &TenantByDomainResponse{Tenant: mapToTenantCatalogSearchRow(tm)}, nil
+}
+
+// CreateTenantUser creates a local-password tenant user via system GraphQL mutation createTenantUser.
+func (c *Client) CreateTenantUser(ctx context.Context, projectID, username, email, password, role string) (*TenantUser, error) {
+	query := `
+		mutation CreateTenantUser($project_id: String!, $username: String!, $password: String!, $role: String, $email: String) {
+			createTenantUser(project_id: $project_id, username: $username, password: $password, role: $role, email: $email) {
+				id
+				username
+				email
+				role
+				provider
+				tenant_id
+				status
+				created_at
+				updated_at
+			}
+		}
+	`
+	variables := map[string]interface{}{
+		"project_id": projectID,
+		"username":   username,
+		"password":   password,
+		"email":      email,
+		"role":       role,
+	}
+	response, err := c.executeGraphQL(ctx, query, variables)
+	if err != nil {
+		return nil, fmt.Errorf("createTenantUser: %w", err)
+	}
+	data, ok := response.Data.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unexpected response format")
+	}
+	raw, ok := data["createTenantUser"].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unexpected createTenantUser response")
+	}
+	return mapToTenantUser(raw), nil
 }
 
 // =============================================================================
@@ -526,7 +832,7 @@ func (c *Client) GetRelationDocuments(ctx context.Context, _id string, connectio
 
 // CreateNewResource creates a new resource in the specified model with the given data and connections
 func (c *Client) CreateNewResource(ctx context.Context, request *types.CreateAndUpdateRequest) (*types.DefaultDocumentStructure, error) {
-	
+
 	if request.Model == "" {
 		return nil, fmt.Errorf("model is required")
 	}
@@ -534,7 +840,7 @@ func (c *Client) CreateNewResource(ctx context.Context, request *types.CreateAnd
 	if request.Payload == nil {
 		return nil, fmt.Errorf("payload is required")
 	}
-	
+
 	query := `
 		mutation CreateNewData($model: String!, $single_page_data: Boolean, $payload: JSON!, $connect: JSON) {
 			upsertModelData(
@@ -558,8 +864,8 @@ func (c *Client) CreateNewResource(ctx context.Context, request *types.CreateAnd
 	`
 
 	variables := map[string]interface{}{
-		"model": request.Model,
-		"payload":  request.Payload,
+		"model":            request.Model,
+		"payload":          request.Payload,
 		"single_page_data": request.SinglePageData,
 	}
 
@@ -638,11 +944,11 @@ func (c *Client) UpdateResource(ctx context.Context, request *types.CreateAndUpd
 	`
 
 	variables := map[string]interface{}{
-		"_id":   request.ID,
-		"model": request.Model,
-		"payload":  request.Payload,
+		"_id":              request.ID,
+		"model":            request.Model,
+		"payload":          request.Payload,
 		"single_page_data": request.SinglePageData,
-		"force_update": request.ForceUpdate,
+		"force_update":     request.ForceUpdate,
 	}
 
 	if request.Connect != nil {
@@ -705,7 +1011,6 @@ func (c *Client) DeleteResource(ctx context.Context, model, _id string) error {
 
 	return nil
 }
-
 
 // Debug is used to debug the plugin, you can pass data here to debug the plugin
 func (c *Client) Debug(ctx context.Context, stage string, data ...interface{}) (interface{}, error) {

@@ -2,6 +2,7 @@ package goapitosdk
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
 
@@ -198,7 +199,7 @@ func TestCreateNewResource(t *testing.T) {
 	}
 
 	result, err := client.CreateNewResource(ctx, &types.CreateAndUpdateRequest{
-		Model: "task",
+		Model:   "task",
 		Payload: data,
 		Connect: connct,
 	})
@@ -236,10 +237,10 @@ func TestUpdateResource(t *testing.T) {
 	}
 
 	result, err := client.UpdateResource(ctx, &types.CreateAndUpdateRequest{
-		Model: "task",
-		ID: "a0d50ad7-3001-4be0-92bd-d0daac0af3a9",
-		Payload: data,
-		Connect: connct,
+		Model:      "task",
+		ID:         "a0d50ad7-3001-4be0-92bd-d0daac0af3a9",
+		Payload:    data,
+		Connect:    connct,
 		Disconnect: disconnect,
 	})
 	if err != nil {
@@ -272,7 +273,7 @@ func TestGenerateTenantToken(t *testing.T) {
 	client := getTestClient()
 	ctx := context.Background()
 
-	token, err := client.GenerateTenantToken(ctx, "ak_4HESWVQEXE7V4GVGGDRYGXVWXSCAJL44TAUICSLBPQTOB6CJ53KTU3GUOEXJUIXVAKFMM2BDRJRWWPKEN3DRA3HDLZUY4NZMVLFJUIK5H4BWLY26AUKDOHPZE2ENGJNCXPPPEBKCNLTUXXUFUKVDGYJ2H6CZCSMQCY5KSCYNJVYBXVJBYE6O7C73DI3NV7Q", "ba0ee756-6aea-43a6-b052-c7baab3da91c")
+	token, err := client.GenerateTenantToken(ctx, "ba0ee756-6aea-43a6-b052-c7baab3da91c", "", "")
 	if err != nil {
 		t.Logf("GenerateTenantToken failed (may be expected): %v", err)
 		return
@@ -501,6 +502,47 @@ func TestTypedOperationsIntegration(t *testing.T) {
 			_ = task.Data.Description // interface{} (can be string or object)
 		}
 	})
+}
+
+// TestTenantUserProIntegration exercises Pro tenant catalog GraphQL when APITO_PROJECT_ID is set.
+func TestTenantUserProIntegration(t *testing.T) {
+	projectID := os.Getenv("APITO_PROJECT_ID")
+	if projectID == "" {
+		t.Skip("set APITO_PROJECT_ID to run Pro tenant user integration test")
+	}
+
+	client := getTestClient()
+	ctx := context.Background()
+
+	list, err := client.SearchTenantUsers(ctx, projectID, 10, 0)
+	if err != nil {
+		t.Logf("SearchTenantUsers failed: %v", err)
+		return
+	}
+	t.Logf("✅ SearchTenantUsers: count=%d", list.Count)
+
+	if dom, err := client.SearchTenantsByDomain(ctx, projectID, "example.invalid"); err != nil {
+		t.Logf("SearchTenantsByDomain failed: %v", err)
+	} else {
+		has := dom != nil && dom.Tenant != nil
+		t.Logf("✅ SearchTenantsByDomain: match=%v", has)
+	}
+
+	user := os.Getenv("APITO_TENANT_USERNAME")
+	pw := os.Getenv("APITO_TENANT_PASSWORD")
+	if user == "" || pw == "" {
+		t.Log("optional: set APITO_TENANT_USERNAME and APITO_TENANT_PASSWORD to test LoginTenantUser")
+		return
+	}
+
+	login, err := client.LoginTenantUser(ctx, projectID, user, pw)
+	if err != nil {
+		t.Logf("LoginTenantUser failed: %v", err)
+		return
+	}
+	if login.Token != "" {
+		t.Logf("✅ LoginTenantUser: token length=%d", len(login.Token))
+	}
 }
 
 // ExampleTypedOperations shows how to use the typed operations in documentation

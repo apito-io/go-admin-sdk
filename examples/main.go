@@ -61,15 +61,15 @@ func main() {
 	// 1. AUTHENTICATION & TENANT TOKEN GENERATION
 	// =============================================================================
 	fmt.Println("\n🔐 1. Authentication & Tenant Token Generation")
-	if authToken := getEnv("APITO_AUTH_TOKEN", ""); authToken != "" && getEnv("APITO_TENANT_ID", "") != "" {
-		tenantToken, err := client.GenerateTenantToken(ctx, authToken, getEnv("APITO_TENANT_ID", ""))
+	if getEnv("APITO_TENANT_ID", "") != "" {
+		tenantToken, err := client.GenerateTenantToken(ctx, getEnv("APITO_TENANT_ID", ""), getEnv("APITO_TENANT_TOKEN_DURATION", ""), getEnv("APITO_TENANT_TOKEN_ROLE", ""))
 		if err != nil {
 			log.Printf("❌ Error generating tenant token: %v", err)
 		} else {
 			fmt.Printf("✅ Generated tenant token: %s...\n", tenantToken[:20])
 		}
 	} else {
-		fmt.Println("ℹ️  Skipping tenant token generation (missing auth token or tenant ID)")
+		fmt.Println("ℹ️  Skipping tenant token generation (set APITO_TENANT_ID; optional APITO_TENANT_TOKEN_DURATION, APITO_TENANT_TOKEN_ROLE)")
 	}
 
 	// =============================================================================

@@ -23,6 +23,8 @@ A comprehensive Go SDK for communicating with Apito GraphQL API endpoints. This 
 go get github.com/apito-io/go-internal-sdk
 ```
 
+When building this repository from a checkout that vendors **`github.com/apito-io/types`** via `replace ... => ../types`, keep the **`types`** module cloned as a sibling directory (`../types` relative to this module root). Remove the `replace` line after upgrading **`go.mod`** to a published **`types`** release that includes the matching **`InternalSDKOperation.GenerateTenantToken`** signature.
+
 ## 🎯 Quick Start
 
 ```go
@@ -117,15 +119,51 @@ results, err := client.SearchResources(ctx, "users", filter, false)
 
 #### Generate Tenant Token
 
-Generate a new tenant token for multi-tenant operations:
+Generate a new tenant token for multi-tenant operations. Arguments match the engine `generateTenantToken` mutation: **`tenantID`**, **`duration`** (`YYYY-MM-DD`; empty string uses one year ahead in UTC), optional **`role`** (empty uses engine default `admin`). Auth uses the client API key, not a legacy token parameter.
 
 ```go
-tenantToken, err := client.GenerateTenantToken(ctx, "auth-token", "tenant-id")
+tenantToken, err := client.GenerateTenantToken(ctx, "tenant-catalog-id", "2027-12-31", "")
 if err != nil {
     log.Fatal(err)
 }
 fmt.Println("Generated token:", tenantToken)
 ```
+
+#### Pro: tenant catalog users (Apito Pro)
+
+Requires a Pro engine and system GraphQL (`/system/graphql`) with an admin API key. These operations are project-first (`project_id`) and return `tenant_id` in user payloads.
+
+| Method | Description |
+|--------|-------------|
+| `LoginTenantUser(ctx, projectID, username, password)` | Local password login in project scope; on success includes a tenant-scoped token. |
+| `LoginTenantUserGoogle(ctx, projectID, idToken)` | Google ID token login in project scope; project must have `google_client_id`. |
+| `SearchTenantUsers(ctx, projectID, limit, offset)` | List tenant users for a project (each row includes `tenant_id`). |
+| `SearchTenantsByDomain(ctx, projectID, domain)` | Resolve the single SaaS catalog tenant for an exact domain match in the project (`tenant` null if none). |
+| `CreateTenantUser(ctx, projectID, username, email, password, role)` | Create a local-password tenant user in project scope. |
+
+On the engine system GraphQL API, `createTenant` accepts an optional `domain` argument; when it is set, the engine requires that domain to be unused in the project (otherwise the mutation fails with a clear error). `updateTenant` validates the same when changing `domain`. Use `executeGraphQL` if you need those catalog mutations from the SDK.
+
+```go
+// List tenant users by project
+list, err := client.SearchTenantUsers(ctx, "project-id", 50, 0)
+if err != nil {
+    log.Fatal(err)
+}
+for _, u := range list.Users {
+    fmt.Println(u.Username, u.Role, u.Status)
+}
+
+// Login (returns token + user on success)
+login, err := client.LoginTenantUser(ctx, "project-id", "admin", "secret")
+if err != nil {
+    log.Fatal(err)
+}
+if login.Token != "" {
+    fmt.Println("tenant token:", login.Token)
+}
+```
+
+See also: `examples/tenant_users/main.go`.
 
 ### 📝 Resource Management
 
@@ -351,7 +389,7 @@ The SDK includes a comprehensive todo application example that demonstrates all 
 # Set environment variables
 export APITO_BASE_URL="https://api.apito.io/graphql"
 export APITO_API_KEY="your-api-key"
-export APITO_TENANT_ID="your-tenant-id"  # Optional
+export APITO_TENANT_ID="your-tenant-id"  # Optional (for tenant-token generation only)
 export APITO_AUTH_TOKEN="your-auth-token"  # Optional for token generation
 
 # Run the example
@@ -370,6 +408,17 @@ The example demonstrates:
 - 📊 Audit logging
 - 🐛 Debug functionality
 - 🗑️ Resource cleanup
+
+### Pro: tenant catalog users
+
+```bash
+export APITO_API_KEY="your-api-key"
+export APITO_PROJECT_ID="your-project-id"
+# Optional: export APITO_TENANT_USERNAME / APITO_TENANT_PASSWORD to test login
+go run ./examples/tenant_users/
+```
+
+Details: `examples/tenant_users/README.md`.
 
 ## 🏗️ Type System
 
