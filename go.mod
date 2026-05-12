@@ -1,8 +1,7 @@
-module github.com/apito-io/go-internal-sdk
+module github.com/apito-io/go-admin-sdk
 
 go 1.25.4
 
-// Remove this line: github.com/apito-io/go-internal-sdk v1.2.5
 require github.com/apito-io/types v0.1.10
 
 require go.mongodb.org/mongo-driver v1.17.6 // indirect

@@ -13,7 +13,7 @@ Minimal sample for **Pro** Apito: `SearchTenantUsers` and optional `LoginTenantU
 
 ## Run
 
-From the **go-internal-sdk** repository root:
+From the **go-admin-sdk** repository root:
 
 ```bash
 export APITO_API_KEY='ak_...'

@@ -5,11 +5,17 @@ All notable changes to the Go Apito SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.5.1] - 2026-05-13
+## [1.5.2] - 2026-05-13
+
+### Changed (breaking — module path only)
+
+- **Module path** is now **`github.com/apito-io/go-admin-sdk`** (was `github.com/apito-io/go-internal-sdk`). Update imports and `go get github.com/apito-io/go-admin-sdk@v1.5.2`. The Git remote may still point at a repository named `go-internal-sdk` until it is renamed on GitHub; the **module path** in `go.mod` is what `go get` uses.
 
 ### Fixed
 
-- **Examples**: `examples/main.go` and `examples/tenant_users` now import **`github.com/apito-io/go-internal-sdk`** (the module path), not the non-existent `go-admin-sdk` path, so `go mod tidy` and `go test ./...` work from a clean checkout.
+- **Examples** and **README** use the **`go-admin-sdk`** import path consistently.
+
+## [1.5.1] - 2026-05-13
 
 ### Changed (breaking)
 

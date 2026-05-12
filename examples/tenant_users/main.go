@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	goapitosdk "github.com/apito-io/go-internal-sdk"
+	goapitosdk "github.com/apito-io/go-admin-sdk"
 )
 
 func main() {

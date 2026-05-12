@@ -1,7 +1,7 @@
 # Go Apito SDK
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/apito-io/go-internal-sdk.svg)](https://pkg.go.dev/github.com/apito-io/go-internal-sdk)
-[![Go Report Card](https://goreportcard.com/badge/github.com/apito-io/go-internal-sdk)](https://goreportcard.com/report/github.com/apito-io/go-internal-sdk)
+[![Go Reference](https://pkg.go.dev/badge/github.com/apito-io/go-admin-sdk.svg)](https://pkg.go.dev/github.com/apito-io/go-admin-sdk)
+[![Go Report Card](https://goreportcard.com/badge/github.com/apito-io/go-admin-sdk)](https://goreportcard.com/report/github.com/apito-io/go-admin-sdk)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A comprehensive Go SDK for communicating with Apito GraphQL API endpoints. This SDK implements the `InjectedDBOperationInterface` and provides both type-safe and flexible interfaces for interacting with Apito's backend services.
@@ -20,7 +20,7 @@ A comprehensive Go SDK for communicating with Apito GraphQL API endpoints. This 
 ## 📦 Installation
 
 ```bash
-go get github.com/apito-io/go-internal-sdk
+go get github.com/apito-io/go-admin-sdk
 ```
 
 When building this repository from a checkout that vendors **`github.com/apito-io/types`** via `replace ... => ../types`, keep the **`types`** module cloned as a sibling directory (`../types` relative to this module root). Remove the `replace` line after upgrading **`go.mod`** to a published **`types`** release that includes the matching **`InternalSDKOperation.GenerateTenantToken`** signature.
@@ -36,7 +36,7 @@ import (
     "log"
     "time"
 
-    goapitosdk "github.com/apito-io/go-internal-sdk"
+    goapitosdk "github.com/apito-io/go-admin-sdk"
 )
 
 func main() {
@@ -701,7 +701,7 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 ### Development Setup
 
 ```bash
-git clone https://github.com/apito-io/go-internal-sdk.git
+git clone https://github.com/apito-io/go-admin-sdk.git
 cd go-apito-sdk
 go mod download
 go test ./...
@@ -714,13 +714,13 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🔗 Links
 
 - [Apito Documentation](https://docs.apito.io)
-- [API Reference](https://pkg.go.dev/github.com/apito-io/go-internal-sdk)
-- [GitHub Repository](https://github.com/apito-io/go-internal-sdk)
-- [Issues](https://github.com/apito-io/go-internal-sdk/issues)
+- [API Reference](https://pkg.go.dev/github.com/apito-io/go-admin-sdk)
+- [GitHub Repository](https://github.com/apito-io/go-admin-sdk)
+- [Issues](https://github.com/apito-io/go-admin-sdk/issues)
 
 ## 🆘 Support
 
 - 📧 Email: support@apito.io
 - 💬 Discord: [Join our community](https://discord.gg/apito)
 - 📖 Documentation: [docs.apito.io](https://docs.apito.io)
-- 🐛 Bug Reports: [GitHub Issues](https://github.com/apito-io/go-internal-sdk/issues)
+- 🐛 Bug Reports: [GitHub Issues](https://github.com/apito-io/go-admin-sdk/issues)
