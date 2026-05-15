@@ -5,6 +5,35 @@ All notable changes to the Go Apito SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - 2026-05-08
+
+### Changed (breaking)
+
+- **`LoginTenantUserGoogle` removed** — engine dropped **`loginTenantUserGoogle`**. Use **`LoginTenantUser`** with **`AuthMethod: "google"`**, **`Code`**, **`State`**.
+
+### Added
+
+- **`TenantGoogleOAuthState(ctx, projectID)`** → **`TenantGoogleOAuthStateResponse`** (**`State`**) for the Google authorize redirect.
+
+### `LoginTenantUserParams`
+
+- **`Code`**, **`State`** for Google flow.
+- **`Password`** / **`Email`** / **`Phone`** only required when **`AuthMethod`** is empty or **`general`**.
+
+## [1.6.0] - 2026-05-14
+
+### Changed (breaking)
+
+- **Tenant catalog users** aligned with engine Pro GraphQL: **`TenantUser`** now has **`Phone`** (no **`Username`**). **`LoginTenantUser`** is now **`LoginTenantUser(ctx, projectID, LoginTenantUserParams)`** with **`Password`**, optional **`Email`** / **`Phone`**, optional **`AuthMethod`**. **`CreateTenantUser`** is **`CreateTenantUser(ctx, projectID, CreateTenantUserParams)`** (**`Password`**, optional **`Role`**, **`Email`**, **`Phone`**).
+- Added **`UpdateTenantUser`** and **`DeleteTenantUser`** (arguments match system GraphQL; project scope comes from the API key).
+
+### Migration
+
+- Replace `LoginTenantUser(ctx, pid, username, password)` with  
+  `LoginTenantUser(ctx, pid, LoginTenantUserParams{Password: password, Email: "..."})` or `Phone: "..."` per project sign-in mode.
+- Replace `CreateTenantUser(ctx, pid, username, email, password, role)` with  
+  `CreateTenantUser(ctx, pid, CreateTenantUserParams{Password: password, Role: role, Email: email, Phone: phone})`.
+
 ## [1.5.2] - 2026-05-13
 
 ### Changed (breaking — module path only)

@@ -187,11 +187,11 @@ func mapToTenantUser(m map[string]interface{}) *TenantUser {
 	if v, ok := m["id"].(string); ok {
 		u.ID = v
 	}
-	if v, ok := m["username"].(string); ok {
-		u.Username = v
-	}
 	if v, ok := m["email"].(string); ok {
 		u.Email = v
+	}
+	if v, ok := m["phone"].(string); ok {
+		u.Phone = v
 	}
 	if v, ok := m["role"].(string); ok {
 		u.Role = v
@@ -237,16 +237,21 @@ func mapToTenantCatalogSearchRow(m map[string]interface{}) *TenantCatalogSearchR
 	return r
 }
 
-// LoginTenantUser runs the system GraphQL query loginTenantUser (tenant-scoped ak_ token on success).
-func (c *Client) LoginTenantUser(ctx context.Context, projectID, username, password string) (*TenantLoginResponse, error) {
+// LoginTenantUser runs loginTenantUser (password or Google OAuth code flow).
+func (c *Client) LoginTenantUser(ctx context.Context, projectID string, params LoginTenantUserParams) (*TenantLoginResponse, error) {
+	authMethod := strings.ToLower(strings.TrimSpace(params.AuthMethod))
+	if authMethod == "" {
+		authMethod = "general"
+	}
+
 	query := `
-		query LoginTenantUser($project_id: String!, $username: String!, $password: String!) {
-			loginTenantUser(project_id: $project_id, username: $username, password: $password) {
+		query LoginTenantUser($project_id: String!, $password: String, $auth_method: String, $email: String, $phone: String, $code: String, $state: String) {
+			loginTenantUser(project_id: $project_id, password: $password, auth_method: $auth_method, email: $email, phone: $phone, code: $code, state: $state) {
 				token
 				user {
 					id
-					username
 					email
+					phone
 					role
 					provider
 					tenant_id
@@ -259,9 +264,30 @@ func (c *Client) LoginTenantUser(ctx context.Context, projectID, username, passw
 	`
 	variables := map[string]interface{}{
 		"project_id": projectID,
-		"username":   username,
-		"password":   password,
 	}
+	if authMethod == "google" {
+		if strings.TrimSpace(params.Code) == "" || strings.TrimSpace(params.State) == "" {
+			return nil, fmt.Errorf("loginTenantUser: code and state are required for google auth_method")
+		}
+		variables["auth_method"] = "google"
+		variables["code"] = strings.TrimSpace(params.Code)
+		variables["state"] = strings.TrimSpace(params.State)
+	} else {
+		if strings.TrimSpace(params.Password) == "" {
+			return nil, fmt.Errorf("loginTenantUser: password is required")
+		}
+		if strings.TrimSpace(params.Email) == "" && strings.TrimSpace(params.Phone) == "" {
+			return nil, fmt.Errorf("loginTenantUser: email or phone is required")
+		}
+		variables["password"] = params.Password
+		if strings.TrimSpace(params.Email) != "" {
+			variables["email"] = strings.TrimSpace(params.Email)
+		}
+		if strings.TrimSpace(params.Phone) != "" {
+			variables["phone"] = strings.TrimSpace(params.Phone)
+		}
+	}
+
 	response, err := c.executeGraphQL(ctx, query, variables)
 	if err != nil {
 		return nil, fmt.Errorf("loginTenantUser: %w", err)
@@ -282,48 +308,33 @@ func (c *Client) LoginTenantUser(ctx context.Context, projectID, username, passw
 	return &TenantLoginResponse{Token: token, User: user}, nil
 }
 
-// LoginTenantUserGoogle runs loginTenantUserGoogle with a Google ID token (audience must match project google_client_id).
-func (c *Client) LoginTenantUserGoogle(ctx context.Context, projectID, idToken string) (*TenantLoginResponse, error) {
+// TenantGoogleOAuthState fetches signed OAuth state for building the Google authorize URL (tenantGoogleOAuthState query).
+func (c *Client) TenantGoogleOAuthState(ctx context.Context, projectID string) (*TenantGoogleOAuthStateResponse, error) {
 	query := `
-		mutation LoginTenantUserGoogle($project_id: String!, $id_token: String!) {
-			loginTenantUserGoogle(project_id: $project_id, id_token: $id_token) {
-				token
-				user {
-					id
-					username
-					email
-					role
-					provider
-					tenant_id
-					status
-					created_at
-					updated_at
-				}
+		query TenantGoogleOAuthState($project_id: String!) {
+			tenantGoogleOAuthState(project_id: $project_id) {
+				state
 			}
 		}
 	`
-	variables := map[string]interface{}{
-		"project_id": projectID,
-		"id_token":   idToken,
-	}
+	variables := map[string]interface{}{"project_id": projectID}
 	response, err := c.executeGraphQL(ctx, query, variables)
 	if err != nil {
-		return nil, fmt.Errorf("loginTenantUserGoogle: %w", err)
+		return nil, fmt.Errorf("tenantGoogleOAuthState: %w", err)
 	}
 	data, ok := response.Data.(map[string]interface{})
 	if !ok {
 		return nil, fmt.Errorf("unexpected response format")
 	}
-	raw, ok := data["loginTenantUserGoogle"].(map[string]interface{})
+	raw, ok := data["tenantGoogleOAuthState"].(map[string]interface{})
 	if !ok {
-		return nil, fmt.Errorf("unexpected loginTenantUserGoogle response")
+		return nil, fmt.Errorf("unexpected tenantGoogleOAuthState response")
 	}
-	token, _ := raw["token"].(string)
-	var user *TenantUser
-	if um, ok := raw["user"].(map[string]interface{}); ok {
-		user = mapToTenantUser(um)
+	state, _ := raw["state"].(string)
+	if strings.TrimSpace(state) == "" {
+		return nil, fmt.Errorf("tenantGoogleOAuthState: empty state")
 	}
-	return &TenantLoginResponse{Token: token, User: user}, nil
+	return &TenantGoogleOAuthStateResponse{State: state}, nil
 }
 
 // SearchTenantUsers lists tenant users for a project.
@@ -334,8 +345,8 @@ func (c *Client) SearchTenantUsers(ctx context.Context, projectID string, limit,
 				count
 				users {
 					id
-					username
 					email
+					phone
 					role
 					provider
 					tenant_id
@@ -423,13 +434,16 @@ func (c *Client) SearchTenantsByDomain(ctx context.Context, projectID, domain st
 }
 
 // CreateTenantUser creates a local-password tenant user via system GraphQL mutation createTenantUser.
-func (c *Client) CreateTenantUser(ctx context.Context, projectID, username, email, password, role string) (*TenantUser, error) {
+func (c *Client) CreateTenantUser(ctx context.Context, projectID string, params CreateTenantUserParams) (*TenantUser, error) {
+	if strings.TrimSpace(params.Password) == "" {
+		return nil, fmt.Errorf("createTenantUser: password is required")
+	}
 	query := `
-		mutation CreateTenantUser($project_id: String!, $username: String!, $password: String!, $role: String, $email: String) {
-			createTenantUser(project_id: $project_id, username: $username, password: $password, role: $role, email: $email) {
+		mutation CreateTenantUser($project_id: String!, $password: String!, $role: String, $email: String, $phone: String) {
+			createTenantUser(project_id: $project_id, password: $password, role: $role, email: $email, phone: $phone) {
 				id
-				username
 				email
+				phone
 				role
 				provider
 				tenant_id
@@ -441,10 +455,16 @@ func (c *Client) CreateTenantUser(ctx context.Context, projectID, username, emai
 	`
 	variables := map[string]interface{}{
 		"project_id": projectID,
-		"username":   username,
-		"password":   password,
-		"email":      email,
-		"role":       role,
+		"password":   params.Password,
+	}
+	if strings.TrimSpace(params.Role) != "" {
+		variables["role"] = strings.TrimSpace(params.Role)
+	}
+	if strings.TrimSpace(params.Email) != "" {
+		variables["email"] = strings.TrimSpace(params.Email)
+	}
+	if strings.TrimSpace(params.Phone) != "" {
+		variables["phone"] = strings.TrimSpace(params.Phone)
 	}
 	response, err := c.executeGraphQL(ctx, query, variables)
 	if err != nil {
@@ -459,6 +479,83 @@ func (c *Client) CreateTenantUser(ctx context.Context, projectID, username, emai
 		return nil, fmt.Errorf("unexpected createTenantUser response")
 	}
 	return mapToTenantUser(raw), nil
+}
+
+// UpdateTenantUser updates a tenant catalog user by id (system GraphQL updateTenantUser). Project scope comes from the API key.
+func (c *Client) UpdateTenantUser(ctx context.Context, userID string, params UpdateTenantUserParams) (*TenantUser, error) {
+	if strings.TrimSpace(userID) == "" {
+		return nil, fmt.Errorf("updateTenantUser: user id is required")
+	}
+	has := params.Email != nil || params.Phone != nil || params.Password != nil || params.Role != nil
+	if !has {
+		return nil, fmt.Errorf("updateTenantUser: at least one field must be set")
+	}
+	query := `
+		mutation UpdateTenantUser($user_id: String!, $email: String, $phone: String, $password: String, $role: String) {
+			updateTenantUser(user_id: $user_id, email: $email, phone: $phone, password: $password, role: $role) {
+				id
+				email
+				phone
+				role
+				provider
+				tenant_id
+				status
+				created_at
+				updated_at
+			}
+		}
+	`
+	variables := map[string]interface{}{"user_id": userID}
+	if params.Email != nil {
+		variables["email"] = *params.Email
+	}
+	if params.Phone != nil {
+		variables["phone"] = *params.Phone
+	}
+	if params.Password != nil {
+		variables["password"] = *params.Password
+	}
+	if params.Role != nil {
+		variables["role"] = *params.Role
+	}
+	response, err := c.executeGraphQL(ctx, query, variables)
+	if err != nil {
+		return nil, fmt.Errorf("updateTenantUser: %w", err)
+	}
+	data, ok := response.Data.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unexpected response format")
+	}
+	raw, ok := data["updateTenantUser"].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unexpected updateTenantUser response")
+	}
+	return mapToTenantUser(raw), nil
+}
+
+// DeleteTenantUser removes a tenant catalog user by id (system GraphQL deleteTenantUser). Project scope comes from the API key.
+func (c *Client) DeleteTenantUser(ctx context.Context, userID string) (bool, error) {
+	if strings.TrimSpace(userID) == "" {
+		return false, fmt.Errorf("deleteTenantUser: user id is required")
+	}
+	query := `
+		mutation DeleteTenantUser($user_id: String!) {
+			deleteTenantUser(user_id: $user_id)
+		}
+	`
+	response, err := c.executeGraphQL(ctx, query, map[string]interface{}{"user_id": userID})
+	if err != nil {
+		return false, fmt.Errorf("deleteTenantUser: %w", err)
+	}
+	data, ok := response.Data.(map[string]interface{})
+	if !ok {
+		return false, fmt.Errorf("unexpected response format")
+	}
+	okOut, ok := data["deleteTenantUser"].(bool)
+	if !ok {
+		return false, fmt.Errorf("unexpected deleteTenantUser response")
+	}
+	return okOut, nil
 }
 
 // =============================================================================

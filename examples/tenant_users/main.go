@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	goapitosdk "github.com/apito-io/go-admin-sdk"
@@ -38,13 +39,25 @@ func main() {
 	}
 	fmt.Printf("Tenant users (count=%d):\n", list.Count)
 	for _, u := range list.Users {
-		fmt.Printf("  - %s (%s) role=%s status=%s\n", u.Username, u.ID, u.Role, u.Status)
+		idLabel := strings.TrimSpace(u.Email)
+		if idLabel == "" {
+			idLabel = strings.TrimSpace(u.Phone)
+		}
+		if idLabel == "" {
+			idLabel = "(no email/phone)"
+		}
+		fmt.Printf("  - %s (%s) role=%s status=%s\n", idLabel, u.ID, u.Role, u.Status)
 	}
 
-	user := os.Getenv("APITO_TENANT_USERNAME")
+	email := strings.TrimSpace(os.Getenv("APITO_TENANT_EMAIL"))
+	phone := strings.TrimSpace(os.Getenv("APITO_TENANT_PHONE"))
 	pw := os.Getenv("APITO_TENANT_PASSWORD")
-	if user != "" && pw != "" {
-		login, err := client.LoginTenantUser(ctx, projectID, user, pw)
+	if (email != "" || phone != "") && pw != "" {
+		login, err := client.LoginTenantUser(ctx, projectID, goapitosdk.LoginTenantUserParams{
+			Password: pw,
+			Email:    email,
+			Phone:    phone,
+		})
 		if err != nil {
 			log.Fatalf("LoginTenantUser: %v", err)
 		}

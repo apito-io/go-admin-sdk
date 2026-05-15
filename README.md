@@ -135,11 +135,13 @@ Requires a Pro engine and system GraphQL (`/system/graphql`) with an admin API k
 
 | Method | Description |
 |--------|-------------|
-| `LoginTenantUser(ctx, projectID, username, password)` | Local password login in project scope; on success includes a tenant-scoped token. |
-| `LoginTenantUserGoogle(ctx, projectID, idToken)` | Google ID token login in project scope; project must have `google_client_id`. |
-| `SearchTenantUsers(ctx, projectID, limit, offset)` | List tenant users for a project (each row includes `tenant_id`). |
+| `LoginTenantUser(ctx, projectID, LoginTenantUserParams)` | General: **`Password`** + **`Email`** or **`Phone`**. Google **code** flow: **`AuthMethod: "google"`**, **`Code`**, **`State`**; use **`TenantGoogleOAuthState`** first for **`State`**. |
+| `TenantGoogleOAuthState(ctx, projectID)` | Returns signed OAuth **`State`** string for building the Google authorize URL. |
+| `SearchTenantUsers(ctx, projectID, limit, offset)` | List tenant users for a project (each row includes `email`, `phone`, `tenant_id`). |
 | `SearchTenantsByDomain(ctx, projectID, domain)` | Resolve the single SaaS catalog tenant for an exact domain match in the project (`tenant` null if none). |
-| `CreateTenantUser(ctx, projectID, username, email, password, role)` | Create a local-password tenant user in project scope. |
+| `CreateTenantUser(ctx, projectID, CreateTenantUserParams)` | Create a local-password tenant user; **`Password`**, optional **`Role`**, **`Email`**, **`Phone`**. |
+| `UpdateTenantUser(ctx, userID, UpdateTenantUserParams)` | Update fields using non-nil **`*string` pointers only** (`email`, `phone`, `password`, `role`). |
+| `DeleteTenantUser(ctx, userID)` | Hard-delete a tenant user (returns bool from GraphQL). |
 
 On the engine system GraphQL API, `createTenant` accepts an optional `domain` argument; when it is set, the engine requires that domain to be unused in the project (otherwise the mutation fails with a clear error). `updateTenant` validates the same when changing `domain`. Use `executeGraphQL` if you need those catalog mutations from the SDK.
 
@@ -150,11 +152,21 @@ if err != nil {
     log.Fatal(err)
 }
 for _, u := range list.Users {
-    fmt.Println(u.Username, u.Role, u.Status)
+    label := u.Email
+    if label == "" {
+        label = u.Phone
+    }
+    if label == "" {
+        label = "(no email/phone)"
+    }
+    fmt.Println(label, u.Role, u.Status)
 }
 
 // Login (returns token + user on success)
-login, err := client.LoginTenantUser(ctx, "project-id", "admin", "secret")
+login, err := client.LoginTenantUser(ctx, "project-id", goapitosdk.LoginTenantUserParams{
+    Password: "secret",
+    Email:    "user@example.com", // use Phone: "+1555..." when project uses phone identifier
+})
 if err != nil {
     log.Fatal(err)
 }
@@ -414,7 +426,7 @@ The example demonstrates:
 ```bash
 export APITO_API_KEY="your-api-key"
 export APITO_PROJECT_ID="your-project-id"
-# Optional: export APITO_TENANT_USERNAME / APITO_TENANT_PASSWORD to test login
+# Optional: export APITO_TENANT_EMAIL and/or APITO_TENANT_PHONE / APITO_TENANT_PASSWORD to test login
 go run ./examples/tenant_users/
 ```
 

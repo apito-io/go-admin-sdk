@@ -3,6 +3,7 @@ package goapitosdk
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -528,14 +529,19 @@ func TestTenantUserProIntegration(t *testing.T) {
 		t.Logf("✅ SearchTenantsByDomain: match=%v", has)
 	}
 
-	user := os.Getenv("APITO_TENANT_USERNAME")
+	email := strings.TrimSpace(os.Getenv("APITO_TENANT_EMAIL"))
+	phone := strings.TrimSpace(os.Getenv("APITO_TENANT_PHONE"))
 	pw := os.Getenv("APITO_TENANT_PASSWORD")
-	if user == "" || pw == "" {
-		t.Log("optional: set APITO_TENANT_USERNAME and APITO_TENANT_PASSWORD to test LoginTenantUser")
+	if (email == "" && phone == "") || pw == "" {
+		t.Log("optional: set APITO_TENANT_EMAIL and/or APITO_TENANT_PHONE plus APITO_TENANT_PASSWORD to test LoginTenantUser")
 		return
 	}
 
-	login, err := client.LoginTenantUser(ctx, projectID, user, pw)
+	login, err := client.LoginTenantUser(ctx, projectID, LoginTenantUserParams{
+		Password: pw,
+		Email:    email,
+		Phone:    phone,
+	})
 	if err != nil {
 		t.Logf("LoginTenantUser failed: %v", err)
 		return
