@@ -144,22 +144,15 @@ Requires system GraphQL (`/system/graphql`) with an admin API key. Operations ar
 | `ResetUserPassword(ctx, userID, password)` | Set a new password (admin mutation). |
 | `DeleteUser(ctx, userID)` | Hard-delete a user (returns bool from GraphQL). |
 
-#### Project storage settings (system GraphQL)
-
-| Method | Description |
-|--------|-------------|
-| `GetProjectStorageSettings(ctx, projectID)` | Read S3/storage settings via `getProject` (secrets not returned). |
-| `UpdateProjectStorageSettings(ctx, input)` | Persist storage settings (`UpdateProjectStorageInput`). |
-
-#### System files (REST)
+#### Files (REST)
 
 REST base URL is derived from `Config.BaseURL` by stripping `/graphql` (e.g. `http://host:5050/system`), or set `Config.RestBaseURL` explicitly.
 
 | Method | Description |
 |--------|-------------|
-| `UploadSystemFile(ctx, params)` | POST `/files/upload` (multipart). |
-| `ListSystemFiles(ctx, fileType, limit, offset)` | GET `/files/list`. |
-| `DeleteSystemFiles(ctx, ids)` | POST `/files/delete`. |
+| `UploadFile(ctx, params)` | POST `/files/upload` (multipart). |
+| `ListFiles(ctx, fileType, limit, offset)` | GET `/files/list`. |
+| `DeleteFiles(ctx, ids)` | POST `/files/delete`. |
 
 On the engine system GraphQL API, `createTenant` accepts an optional `domain` argument; when it is set, the engine requires that domain to be unused in the project (otherwise the mutation fails with a clear error). `updateTenant` validates the same when changing `domain`. Use `executeGraphQL` if you need those catalog mutations from the SDK.
 
@@ -193,7 +186,7 @@ if login.Token != "" {
 }
 ```
 
-See also: `examples/users/main.go`, `examples/system_files/main.go`.
+See also: `examples/users/main.go`, `examples/files/main.go`.
 
 ### 📝 Resource Management
 

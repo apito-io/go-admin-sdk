@@ -1,7 +1,7 @@
 package goapitosdk
 
 // Version represents the current version of the Go Apito SDK
-const Version = "2.0.0"
+const Version = "2.1.0"
 
 // GetVersion returns the current version of the SDK
 func GetVersion() string {

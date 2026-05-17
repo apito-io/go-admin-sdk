@@ -5,6 +5,27 @@ All notable changes to the Go Apito SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-05-17
+
+### Changed (breaking)
+
+- **Removed storage settings GraphQL** — `GetProjectStorageSettings` and `UpdateProjectStorageSettings` dropped from the SDK (configure storage in the console or via raw GraphQL).
+- **File API renamed** — action-oriented names aligned with the User API: `UploadFile`, `ListFiles`, `DeleteFiles` (was `*SystemFile*`).
+
+### Migration
+
+| v2.0.0 | v2.1.0 |
+|--------|--------|
+| `GetProjectStorageSettings` | removed |
+| `UpdateProjectStorageSettings` | removed |
+| `UploadSystemFile` | `UploadFile` |
+| `ListSystemFiles` | `ListFiles` |
+| `DeleteSystemFiles` | `DeleteFiles` |
+| `SystemFile` | `File` |
+| `SystemFileUploadParams` | `UploadFileParams` |
+| `SystemFilesListResponse` | `FilesListResponse` |
+| `DeleteSystemFilesResponse` | `DeleteFilesResponse` |
+
 ## [2.0.0] - 2026-05-17
 
 ### Changed (breaking)

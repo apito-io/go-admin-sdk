@@ -1,4 +1,4 @@
-// System files REST example. Run from repo root: go run ./examples/system_files/
+// Files REST example. Run from repo root: go run ./examples/files/
 package main
 
 import (
@@ -28,9 +28,9 @@ func main() {
 	})
 	ctx := context.Background()
 
-	list, err := client.ListSystemFiles(ctx, "", 20, 0)
+	list, err := client.ListFiles(ctx, "", 20, 0)
 	if err != nil {
-		log.Fatalf("ListSystemFiles: %v", err)
+		log.Fatalf("ListFiles: %v", err)
 	}
 	fmt.Printf("Files (total=%d):\n", list.Total)
 	for _, f := range list.Files {
@@ -45,12 +45,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("read file: %v", err)
 	}
-	uploaded, err := client.UploadSystemFile(ctx, goapitosdk.SystemFileUploadParams{
+	uploaded, err := client.UploadFile(ctx, goapitosdk.UploadFileParams{
 		FileName: path,
 		Content:  data,
 	})
 	if err != nil {
-		log.Fatalf("UploadSystemFile: %v", err)
+		log.Fatalf("UploadFile: %v", err)
 	}
 	fmt.Printf("Uploaded: %s -> %s\n", uploaded.ID, uploaded.URL)
 }
