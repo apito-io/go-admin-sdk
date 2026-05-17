@@ -1,4 +1,4 @@
-// Tenant catalog users example (Apito Pro). Run from repo root: go run ./examples/tenant_users/
+// Project users example. Run from repo root: go run ./examples/users/
 package main
 
 import (
@@ -33,11 +33,11 @@ func main() {
 	})
 	ctx := context.Background()
 
-	list, err := client.SearchTenantUsers(ctx, projectID, 50, 0)
+	list, err := client.SearchUsers(ctx, projectID, 50, 0)
 	if err != nil {
-		log.Fatalf("SearchTenantUsers: %v", err)
+		log.Fatalf("SearchUsers: %v", err)
 	}
-	fmt.Printf("Tenant users (count=%d):\n", list.Count)
+	fmt.Printf("Users (count=%d):\n", list.Count)
 	for _, u := range list.Users {
 		idLabel := strings.TrimSpace(u.Email)
 		if idLabel == "" {
@@ -53,13 +53,13 @@ func main() {
 	phone := strings.TrimSpace(os.Getenv("APITO_TENANT_PHONE"))
 	pw := os.Getenv("APITO_TENANT_PASSWORD")
 	if (email != "" || phone != "") && pw != "" {
-		login, err := client.LoginTenantUser(ctx, projectID, goapitosdk.LoginTenantUserParams{
+		login, err := client.LoginUser(ctx, projectID, goapitosdk.LoginUserParams{
 			Password: pw,
 			Email:    email,
 			Phone:    phone,
 		})
 		if err != nil {
-			log.Fatalf("LoginTenantUser: %v", err)
+			log.Fatalf("LoginUser: %v", err)
 		}
 		fmt.Printf("Login OK, token length=%d\n", len(login.Token))
 	}

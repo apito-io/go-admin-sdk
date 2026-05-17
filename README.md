@@ -129,25 +129,43 @@ if err != nil {
 fmt.Println("Generated token:", tenantToken)
 ```
 
-#### Pro: tenant catalog users (Apito Pro)
+#### Project users (system GraphQL)
 
-Requires a Pro engine and system GraphQL (`/system/graphql`) with an admin API key. These operations are project-first (`project_id`) and return `tenant_id` in user payloads.
+Requires system GraphQL (`/system/graphql`) with an admin API key. Operations are project-first (`project_id`). On Pro/SaaS engines, user payloads include `tenant_id`.
 
 | Method | Description |
 |--------|-------------|
-| `LoginTenantUser(ctx, projectID, LoginTenantUserParams)` | General: **`Password`** + **`Email`** or **`Phone`**. Google **code** flow: **`AuthMethod: "google"`**, **`Code`**, **`State`**; use **`TenantGoogleOAuthState`** first for **`State`**. |
-| `TenantGoogleOAuthState(ctx, projectID)` | Returns signed OAuth **`State`** string for building the Google authorize URL. |
-| `SearchTenantUsers(ctx, projectID, limit, offset)` | List tenant users for a project (each row includes `email`, `phone`, `tenant_id`). |
+| `LoginUser(ctx, projectID, LoginUserParams)` | General: **`Password`** + **`Email`** or **`Phone`**. Google **code** flow: **`AuthMethod: "google"`**, **`Code`**, **`State`**; use **`GoogleOAuthState`** first for **`State`**. |
+| `GoogleOAuthState(ctx, projectID)` | Returns signed OAuth **`State`** string for building the Google authorize URL. |
+| `SearchUsers(ctx, projectID, limit, offset)` | List project end-users (`email`, `phone`, optional `tenant_id`). |
 | `SearchTenantsByDomain(ctx, projectID, domain)` | Resolve the single SaaS catalog tenant for an exact domain match in the project (`tenant` null if none). |
-| `CreateTenantUser(ctx, projectID, CreateTenantUserParams)` | Create a local-password tenant user; **`Password`**, optional **`Role`**, **`Email`**, **`Phone`**. |
-| `UpdateTenantUser(ctx, userID, UpdateTenantUserParams)` | Update fields using non-nil **`*string` pointers only** (`email`, `phone`, `password`, `role`). |
-| `DeleteTenantUser(ctx, userID)` | Hard-delete a tenant user (returns bool from GraphQL). |
+| `CreateUser(ctx, projectID, CreateUserParams)` | Create a local-password user; **`Password`**, optional **`Role`**, **`Email`**, **`Phone`**. |
+| `UpdateUser(ctx, userID, UpdateUserParams)` | Update **`email`**, **`phone`**, **`role`** (non-nil **`*string` pointers only**). |
+| `ResetUserPassword(ctx, userID, password)` | Set a new password (admin mutation). |
+| `DeleteUser(ctx, userID)` | Hard-delete a user (returns bool from GraphQL). |
+
+#### Project storage settings (system GraphQL)
+
+| Method | Description |
+|--------|-------------|
+| `GetProjectStorageSettings(ctx, projectID)` | Read S3/storage settings via `getProject` (secrets not returned). |
+| `UpdateProjectStorageSettings(ctx, input)` | Persist storage settings (`UpdateProjectStorageInput`). |
+
+#### System files (REST)
+
+REST base URL is derived from `Config.BaseURL` by stripping `/graphql` (e.g. `http://host:5050/system`), or set `Config.RestBaseURL` explicitly.
+
+| Method | Description |
+|--------|-------------|
+| `UploadSystemFile(ctx, params)` | POST `/files/upload` (multipart). |
+| `ListSystemFiles(ctx, fileType, limit, offset)` | GET `/files/list`. |
+| `DeleteSystemFiles(ctx, ids)` | POST `/files/delete`. |
 
 On the engine system GraphQL API, `createTenant` accepts an optional `domain` argument; when it is set, the engine requires that domain to be unused in the project (otherwise the mutation fails with a clear error). `updateTenant` validates the same when changing `domain`. Use `executeGraphQL` if you need those catalog mutations from the SDK.
 
 ```go
-// List tenant users by project
-list, err := client.SearchTenantUsers(ctx, "project-id", 50, 0)
+// List users by project
+list, err := client.SearchUsers(ctx, "project-id", 50, 0)
 if err != nil {
     log.Fatal(err)
 }
@@ -163,7 +181,7 @@ for _, u := range list.Users {
 }
 
 // Login (returns token + user on success)
-login, err := client.LoginTenantUser(ctx, "project-id", goapitosdk.LoginTenantUserParams{
+login, err := client.LoginUser(ctx, "project-id", goapitosdk.LoginUserParams{
     Password: "secret",
     Email:    "user@example.com", // use Phone: "+1555..." when project uses phone identifier
 })
@@ -175,7 +193,7 @@ if login.Token != "" {
 }
 ```
 
-See also: `examples/tenant_users/main.go`.
+See also: `examples/users/main.go`, `examples/system_files/main.go`.
 
 ### 📝 Resource Management
 

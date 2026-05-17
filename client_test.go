@@ -43,8 +43,8 @@ type Product struct {
 	CreatedAt   string  `json:"created_at"`
 }
 
-// Example User struct for testing typed operations
-type User struct {
+// ExampleProfileUser is a sample document shape for typed operation tests.
+type ExampleProfileUser struct {
 	Email     string `json:"email"`
 	FirstName string `json:"first_name"`
 	LastName  string `json:"last_name"`
@@ -505,8 +505,8 @@ func TestTypedOperationsIntegration(t *testing.T) {
 	})
 }
 
-// TestTenantUserProIntegration exercises Pro tenant catalog GraphQL when APITO_PROJECT_ID is set.
-func TestTenantUserProIntegration(t *testing.T) {
+// TestUserProIntegration exercises project user GraphQL when APITO_PROJECT_ID is set.
+func TestUserProIntegration(t *testing.T) {
 	projectID := os.Getenv("APITO_PROJECT_ID")
 	if projectID == "" {
 		t.Skip("set APITO_PROJECT_ID to run Pro tenant user integration test")
@@ -515,12 +515,12 @@ func TestTenantUserProIntegration(t *testing.T) {
 	client := getTestClient()
 	ctx := context.Background()
 
-	list, err := client.SearchTenantUsers(ctx, projectID, 10, 0)
+	list, err := client.SearchUsers(ctx, projectID, 10, 0)
 	if err != nil {
-		t.Logf("SearchTenantUsers failed: %v", err)
+		t.Logf("SearchUsers failed: %v", err)
 		return
 	}
-	t.Logf("✅ SearchTenantUsers: count=%d", list.Count)
+	t.Logf("✅ SearchUsers: count=%d", list.Count)
 
 	if dom, err := client.SearchTenantsByDomain(ctx, projectID, "example.invalid"); err != nil {
 		t.Logf("SearchTenantsByDomain failed: %v", err)
@@ -533,21 +533,21 @@ func TestTenantUserProIntegration(t *testing.T) {
 	phone := strings.TrimSpace(os.Getenv("APITO_TENANT_PHONE"))
 	pw := os.Getenv("APITO_TENANT_PASSWORD")
 	if (email == "" && phone == "") || pw == "" {
-		t.Log("optional: set APITO_TENANT_EMAIL and/or APITO_TENANT_PHONE plus APITO_TENANT_PASSWORD to test LoginTenantUser")
+		t.Log("optional: set APITO_TENANT_EMAIL and/or APITO_TENANT_PHONE plus APITO_TENANT_PASSWORD to test LoginUser")
 		return
 	}
 
-	login, err := client.LoginTenantUser(ctx, projectID, LoginTenantUserParams{
+	login, err := client.LoginUser(ctx, projectID, LoginUserParams{
 		Password: pw,
 		Email:    email,
 		Phone:    phone,
 	})
 	if err != nil {
-		t.Logf("LoginTenantUser failed: %v", err)
+		t.Logf("LoginUser failed: %v", err)
 		return
 	}
 	if login.Token != "" {
-		t.Logf("✅ LoginTenantUser: token length=%d", len(login.Token))
+		t.Logf("✅ LoginUser: token length=%d", len(login.Token))
 	}
 }
 

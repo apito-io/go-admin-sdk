@@ -16,17 +16,19 @@ import (
 
 // Client represents the Apito SDK client
 type Client struct {
-	baseURL    string
-	apiKey     string
-	httpClient *http.Client
+	baseURL     string
+	restBaseURL string
+	apiKey      string
+	httpClient  *http.Client
 }
 
 // Config represents the SDK configuration
 type Config struct {
-	BaseURL    string        // Base URL of the Apito GraphQL endpoint
-	APIKey     string        // API key for authentication (X-APITO-KEY header)
-	Timeout    time.Duration // HTTP client timeout (default: 30 seconds)
-	HTTPClient *http.Client  // Custom HTTP client (optional)
+	BaseURL     string        // Base URL of the Apito GraphQL endpoint (e.g. http://host:5050/system/graphql)
+	RestBaseURL string        // Optional REST base (e.g. http://host:5050/system); derived from BaseURL when empty
+	APIKey      string        // API key for authentication (X-APITO-KEY header)
+	Timeout     time.Duration // HTTP client timeout (default: 30 seconds)
+	HTTPClient  *http.Client  // Custom HTTP client (optional)
 }
 
 // NewClient creates a new Apito SDK client
@@ -42,11 +44,25 @@ func NewClient(config Config) *Client {
 		}
 	}
 
-	return &Client{
-		baseURL:    config.BaseURL,
-		apiKey:     config.APIKey,
-		httpClient: httpClient,
+	restBase := strings.TrimSpace(config.RestBaseURL)
+	if restBase == "" {
+		restBase = deriveRestBaseURL(config.BaseURL)
 	}
+
+	return &Client{
+		baseURL:     config.BaseURL,
+		restBaseURL: restBase,
+		apiKey:      config.APIKey,
+		httpClient:  httpClient,
+	}
+}
+
+func deriveRestBaseURL(graphqlURL string) string {
+	u := strings.TrimSuffix(strings.TrimSpace(graphqlURL), "/")
+	if strings.HasSuffix(u, "/graphql") {
+		return strings.TrimSuffix(u, "/graphql")
+	}
+	return u
 }
 
 // executeGraphQL executes a GraphQL query or mutation
@@ -179,11 +195,11 @@ func withTenantCtx(ctx context.Context, tenantID string) context.Context {
 	return context.WithValue(ctx, "tenant_id", tenantID)
 }
 
-func mapToTenantUser(m map[string]interface{}) *TenantUser {
+func mapToUser(m map[string]interface{}) *User {
 	if m == nil {
 		return nil
 	}
-	u := &TenantUser{}
+	u := &User{}
 	if v, ok := m["id"].(string); ok {
 		u.ID = v
 	}
@@ -237,16 +253,16 @@ func mapToTenantCatalogSearchRow(m map[string]interface{}) *TenantCatalogSearchR
 	return r
 }
 
-// LoginTenantUser runs loginTenantUser (password or Google OAuth code flow).
-func (c *Client) LoginTenantUser(ctx context.Context, projectID string, params LoginTenantUserParams) (*TenantLoginResponse, error) {
+// LoginUser runs loginUser (password or Google OAuth code flow).
+func (c *Client) LoginUser(ctx context.Context, projectID string, params LoginUserParams) (*LoginUserResponse, error) {
 	authMethod := strings.ToLower(strings.TrimSpace(params.AuthMethod))
 	if authMethod == "" {
 		authMethod = "general"
 	}
 
 	query := `
-		query LoginTenantUser($project_id: String!, $password: String, $auth_method: String, $email: String, $phone: String, $code: String, $state: String) {
-			loginTenantUser(project_id: $project_id, password: $password, auth_method: $auth_method, email: $email, phone: $phone, code: $code, state: $state) {
+		query LoginUser($project_id: String!, $password: String, $auth_method: String, $email: String, $phone: String, $code: String, $state: String) {
+			loginUser(project_id: $project_id, password: $password, auth_method: $auth_method, email: $email, phone: $phone, code: $code, state: $state) {
 				token
 				user {
 					id
@@ -267,17 +283,17 @@ func (c *Client) LoginTenantUser(ctx context.Context, projectID string, params L
 	}
 	if authMethod == "google" {
 		if strings.TrimSpace(params.Code) == "" || strings.TrimSpace(params.State) == "" {
-			return nil, fmt.Errorf("loginTenantUser: code and state are required for google auth_method")
+			return nil, fmt.Errorf("loginUser: code and state are required for google auth_method")
 		}
 		variables["auth_method"] = "google"
 		variables["code"] = strings.TrimSpace(params.Code)
 		variables["state"] = strings.TrimSpace(params.State)
 	} else {
 		if strings.TrimSpace(params.Password) == "" {
-			return nil, fmt.Errorf("loginTenantUser: password is required")
+			return nil, fmt.Errorf("loginUser: password is required")
 		}
 		if strings.TrimSpace(params.Email) == "" && strings.TrimSpace(params.Phone) == "" {
-			return nil, fmt.Errorf("loginTenantUser: email or phone is required")
+			return nil, fmt.Errorf("loginUser: email or phone is required")
 		}
 		variables["password"] = params.Password
 		if strings.TrimSpace(params.Email) != "" {
@@ -290,29 +306,29 @@ func (c *Client) LoginTenantUser(ctx context.Context, projectID string, params L
 
 	response, err := c.executeGraphQL(ctx, query, variables)
 	if err != nil {
-		return nil, fmt.Errorf("loginTenantUser: %w", err)
+		return nil, fmt.Errorf("loginUser: %w", err)
 	}
 	data, ok := response.Data.(map[string]interface{})
 	if !ok {
 		return nil, fmt.Errorf("unexpected response format")
 	}
-	raw, ok := data["loginTenantUser"].(map[string]interface{})
+	raw, ok := data["loginUser"].(map[string]interface{})
 	if !ok {
-		return nil, fmt.Errorf("unexpected loginTenantUser response")
+		return nil, fmt.Errorf("unexpected loginUser response")
 	}
 	token, _ := raw["token"].(string)
-	var user *TenantUser
+	var user *User
 	if um, ok := raw["user"].(map[string]interface{}); ok {
-		user = mapToTenantUser(um)
+		user = mapToUser(um)
 	}
-	return &TenantLoginResponse{Token: token, User: user}, nil
+	return &LoginUserResponse{Token: token, User: user}, nil
 }
 
-// TenantGoogleOAuthState fetches signed OAuth state for building the Google authorize URL (tenantGoogleOAuthState query).
-func (c *Client) TenantGoogleOAuthState(ctx context.Context, projectID string) (*TenantGoogleOAuthStateResponse, error) {
+// GoogleOAuthState fetches signed OAuth state for building the Google authorize URL (googleOAuthState query).
+func (c *Client) GoogleOAuthState(ctx context.Context, projectID string) (*GoogleOAuthStateResponse, error) {
 	query := `
-		query TenantGoogleOAuthState($project_id: String!) {
-			tenantGoogleOAuthState(project_id: $project_id) {
+		query GoogleOAuthState($project_id: String!) {
+			googleOAuthState(project_id: $project_id) {
 				state
 			}
 		}
@@ -320,28 +336,28 @@ func (c *Client) TenantGoogleOAuthState(ctx context.Context, projectID string) (
 	variables := map[string]interface{}{"project_id": projectID}
 	response, err := c.executeGraphQL(ctx, query, variables)
 	if err != nil {
-		return nil, fmt.Errorf("tenantGoogleOAuthState: %w", err)
+		return nil, fmt.Errorf("googleOAuthState: %w", err)
 	}
 	data, ok := response.Data.(map[string]interface{})
 	if !ok {
 		return nil, fmt.Errorf("unexpected response format")
 	}
-	raw, ok := data["tenantGoogleOAuthState"].(map[string]interface{})
+	raw, ok := data["googleOAuthState"].(map[string]interface{})
 	if !ok {
-		return nil, fmt.Errorf("unexpected tenantGoogleOAuthState response")
+		return nil, fmt.Errorf("unexpected googleOAuthState response")
 	}
 	state, _ := raw["state"].(string)
 	if strings.TrimSpace(state) == "" {
-		return nil, fmt.Errorf("tenantGoogleOAuthState: empty state")
+		return nil, fmt.Errorf("googleOAuthState: empty state")
 	}
-	return &TenantGoogleOAuthStateResponse{State: state}, nil
+	return &GoogleOAuthStateResponse{State: state}, nil
 }
 
-// SearchTenantUsers lists tenant users for a project.
-func (c *Client) SearchTenantUsers(ctx context.Context, projectID string, limit, offset int) (*TenantUsersResponse, error) {
+// SearchUsers lists project end-users.
+func (c *Client) SearchUsers(ctx context.Context, projectID string, limit, offset int) (*UsersResponse, error) {
 	query := `
-		query SearchTenantUsers($project_id: String!, $limit: Int, $offset: Int) {
-			searchTenantUsers(project_id: $project_id, limit: $limit, offset: $offset) {
+		query SearchUsers($project_id: String!, $limit: Int, $offset: Int) {
+			searchUsers(project_id: $project_id, limit: $limit, offset: $offset) {
 				count
 				users {
 					id
@@ -364,15 +380,15 @@ func (c *Client) SearchTenantUsers(ctx context.Context, projectID string, limit,
 	}
 	response, err := c.executeGraphQL(ctx, query, variables)
 	if err != nil {
-		return nil, fmt.Errorf("searchTenantUsers: %w", err)
+		return nil, fmt.Errorf("searchUsers: %w", err)
 	}
 	data, ok := response.Data.(map[string]interface{})
 	if !ok {
 		return nil, fmt.Errorf("unexpected response format")
 	}
-	raw, ok := data["searchTenantUsers"].(map[string]interface{})
+	raw, ok := data["searchUsers"].(map[string]interface{})
 	if !ok {
-		return nil, fmt.Errorf("unexpected searchTenantUsers response")
+		return nil, fmt.Errorf("unexpected searchUsers response")
 	}
 	count := 0
 	if v, ok := raw["count"].(float64); ok {
@@ -381,15 +397,15 @@ func (c *Client) SearchTenantUsers(ctx context.Context, projectID string, limit,
 	if v, ok := raw["count"].(int); ok {
 		count = v
 	}
-	var users []*TenantUser
+	var users []*User
 	if arr, ok := raw["users"].([]interface{}); ok {
 		for _, it := range arr {
 			if m, ok := it.(map[string]interface{}); ok {
-				users = append(users, mapToTenantUser(m))
+				users = append(users, mapToUser(m))
 			}
 		}
 	}
-	return &TenantUsersResponse{Users: users, Count: count}, nil
+	return &UsersResponse{Users: users, Count: count}, nil
 }
 
 // SearchTenantsByDomain returns the single SaaS catalog tenant for an exact domain match in the project, or nil tenant if none.
@@ -433,14 +449,14 @@ func (c *Client) SearchTenantsByDomain(ctx context.Context, projectID, domain st
 	return &TenantByDomainResponse{Tenant: mapToTenantCatalogSearchRow(tm)}, nil
 }
 
-// CreateTenantUser creates a local-password tenant user via system GraphQL mutation createTenantUser.
-func (c *Client) CreateTenantUser(ctx context.Context, projectID string, params CreateTenantUserParams) (*TenantUser, error) {
+// CreateUser creates a local-password project user via system GraphQL mutation createUser.
+func (c *Client) CreateUser(ctx context.Context, projectID string, params CreateUserParams) (*User, error) {
 	if strings.TrimSpace(params.Password) == "" {
-		return nil, fmt.Errorf("createTenantUser: password is required")
+		return nil, fmt.Errorf("createUser: password is required")
 	}
 	query := `
-		mutation CreateTenantUser($project_id: String!, $password: String!, $role: String, $email: String, $phone: String) {
-			createTenantUser(project_id: $project_id, password: $password, role: $role, email: $email, phone: $phone) {
+		mutation CreateUser($project_id: String!, $password: String!, $role: String, $email: String, $phone: String) {
+			createUser(project_id: $project_id, password: $password, role: $role, email: $email, phone: $phone) {
 				id
 				email
 				phone
@@ -468,31 +484,31 @@ func (c *Client) CreateTenantUser(ctx context.Context, projectID string, params 
 	}
 	response, err := c.executeGraphQL(ctx, query, variables)
 	if err != nil {
-		return nil, fmt.Errorf("createTenantUser: %w", err)
+		return nil, fmt.Errorf("createUser: %w", err)
 	}
 	data, ok := response.Data.(map[string]interface{})
 	if !ok {
 		return nil, fmt.Errorf("unexpected response format")
 	}
-	raw, ok := data["createTenantUser"].(map[string]interface{})
+	raw, ok := data["createUser"].(map[string]interface{})
 	if !ok {
-		return nil, fmt.Errorf("unexpected createTenantUser response")
+		return nil, fmt.Errorf("unexpected createUser response")
 	}
-	return mapToTenantUser(raw), nil
+	return mapToUser(raw), nil
 }
 
-// UpdateTenantUser updates a tenant catalog user by id (system GraphQL updateTenantUser). Project scope comes from the API key.
-func (c *Client) UpdateTenantUser(ctx context.Context, userID string, params UpdateTenantUserParams) (*TenantUser, error) {
+// UpdateUser updates a project user by id (system GraphQL updateUser). Project scope comes from the API key.
+func (c *Client) UpdateUser(ctx context.Context, userID string, params UpdateUserParams) (*User, error) {
 	if strings.TrimSpace(userID) == "" {
-		return nil, fmt.Errorf("updateTenantUser: user id is required")
+		return nil, fmt.Errorf("updateUser: user id is required")
 	}
-	has := params.Email != nil || params.Phone != nil || params.Password != nil || params.Role != nil
+	has := params.Email != nil || params.Phone != nil || params.Role != nil
 	if !has {
-		return nil, fmt.Errorf("updateTenantUser: at least one field must be set")
+		return nil, fmt.Errorf("updateUser: at least one field must be set")
 	}
 	query := `
-		mutation UpdateTenantUser($user_id: String!, $email: String, $phone: String, $password: String, $role: String) {
-			updateTenantUser(user_id: $user_id, email: $email, phone: $phone, password: $password, role: $role) {
+		mutation UpdateUser($user_id: String!, $email: String, $phone: String, $role: String) {
+			updateUser(user_id: $user_id, email: $email, phone: $phone, role: $role) {
 				id
 				email
 				phone
@@ -512,48 +528,76 @@ func (c *Client) UpdateTenantUser(ctx context.Context, userID string, params Upd
 	if params.Phone != nil {
 		variables["phone"] = *params.Phone
 	}
-	if params.Password != nil {
-		variables["password"] = *params.Password
-	}
 	if params.Role != nil {
 		variables["role"] = *params.Role
 	}
 	response, err := c.executeGraphQL(ctx, query, variables)
 	if err != nil {
-		return nil, fmt.Errorf("updateTenantUser: %w", err)
+		return nil, fmt.Errorf("updateUser: %w", err)
 	}
 	data, ok := response.Data.(map[string]interface{})
 	if !ok {
 		return nil, fmt.Errorf("unexpected response format")
 	}
-	raw, ok := data["updateTenantUser"].(map[string]interface{})
+	raw, ok := data["updateUser"].(map[string]interface{})
 	if !ok {
-		return nil, fmt.Errorf("unexpected updateTenantUser response")
+		return nil, fmt.Errorf("unexpected updateUser response")
 	}
-	return mapToTenantUser(raw), nil
+	return mapToUser(raw), nil
 }
 
-// DeleteTenantUser removes a tenant catalog user by id (system GraphQL deleteTenantUser). Project scope comes from the API key.
-func (c *Client) DeleteTenantUser(ctx context.Context, userID string) (bool, error) {
+// ResetUserPassword sets a new password for a project user (admin mutation resetUserPassword).
+func (c *Client) ResetUserPassword(ctx context.Context, userID, password string) (bool, error) {
 	if strings.TrimSpace(userID) == "" {
-		return false, fmt.Errorf("deleteTenantUser: user id is required")
+		return false, fmt.Errorf("resetUserPassword: user id is required")
+	}
+	if strings.TrimSpace(password) == "" {
+		return false, fmt.Errorf("resetUserPassword: password is required")
 	}
 	query := `
-		mutation DeleteTenantUser($user_id: String!) {
-			deleteTenantUser(user_id: $user_id)
+		mutation ResetUserPassword($user_id: String!, $password: String!) {
+			resetUserPassword(user_id: $user_id, password: $password)
 		}
 	`
-	response, err := c.executeGraphQL(ctx, query, map[string]interface{}{"user_id": userID})
+	response, err := c.executeGraphQL(ctx, query, map[string]interface{}{
+		"user_id":  userID,
+		"password": password,
+	})
 	if err != nil {
-		return false, fmt.Errorf("deleteTenantUser: %w", err)
+		return false, fmt.Errorf("resetUserPassword: %w", err)
 	}
 	data, ok := response.Data.(map[string]interface{})
 	if !ok {
 		return false, fmt.Errorf("unexpected response format")
 	}
-	okOut, ok := data["deleteTenantUser"].(bool)
+	okOut, ok := data["resetUserPassword"].(bool)
 	if !ok {
-		return false, fmt.Errorf("unexpected deleteTenantUser response")
+		return false, fmt.Errorf("unexpected resetUserPassword response")
+	}
+	return okOut, nil
+}
+
+// DeleteUser removes a project user by id (system GraphQL deleteUser). Project scope comes from the API key.
+func (c *Client) DeleteUser(ctx context.Context, userID string) (bool, error) {
+	if strings.TrimSpace(userID) == "" {
+		return false, fmt.Errorf("deleteUser: user id is required")
+	}
+	query := `
+		mutation DeleteUser($user_id: String!) {
+			deleteUser(user_id: $user_id)
+		}
+	`
+	response, err := c.executeGraphQL(ctx, query, map[string]interface{}{"user_id": userID})
+	if err != nil {
+		return false, fmt.Errorf("deleteUser: %w", err)
+	}
+	data, ok := response.Data.(map[string]interface{})
+	if !ok {
+		return false, fmt.Errorf("unexpected response format")
+	}
+	okOut, ok := data["deleteUser"].(bool)
+	if !ok {
+		return false, fmt.Errorf("unexpected deleteUser response")
 	}
 	return okOut, nil
 }

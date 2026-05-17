@@ -5,6 +5,33 @@ All notable changes to the Go Apito SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-05-17
+
+### Changed (breaking)
+
+- **Tenant-user GraphQL renamed to User API** — aligned with engine open-core migration (`users` table, `UserItem` type). All `*TenantUser*` types and methods renamed to `*User*` (e.g. `LoginUser`, `SearchUsers`, `CreateUser`, `UpdateUser`, `DeleteUser`).
+- **`googleOAuthState`** replaces `tenantGoogleOAuthState`.
+- **`UpdateUser`** no longer accepts `password`; use **`ResetUserPassword`**.
+
+### Added
+
+- **`ResetUserPassword(ctx, userID, password)`** — admin password reset mutation.
+- **`GetProjectStorageSettings`**, **`UpdateProjectStorageSettings`** — project S3/storage settings GraphQL.
+- **`UploadSystemFile`**, **`ListSystemFiles`**, **`DeleteSystemFiles`** — `/system/files` REST API (`Config.RestBaseURL` optional; derived from GraphQL base URL).
+- Examples: `examples/users/`, `examples/system_files/` (replaces `examples/tenant_users/`).
+
+### Migration
+
+| v1.7.x | v2.0.0 |
+|--------|--------|
+| `LoginTenantUser` | `LoginUser` |
+| `TenantGoogleOAuthState` | `GoogleOAuthState` |
+| `SearchTenantUsers` | `SearchUsers` |
+| `CreateTenantUser` | `CreateUser` |
+| `UpdateTenantUser` (+ `Password`) | `UpdateUser` + `ResetUserPassword` |
+| `DeleteTenantUser` | `DeleteUser` |
+| `TenantUser` | `User` |
+
 ## [1.7.0] - 2026-05-08
 
 ### Changed (breaking)
