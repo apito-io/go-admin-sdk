@@ -72,7 +72,7 @@ type TenantByDomainResponse struct {
 	Tenant *TenantCatalogSearchRow `json:"tenant"`
 }
 
-// File is metadata for a file uploaded via the system files REST API.
+// File is metadata for a project file returned by the /system/files REST API (stored in the project DB).
 type File struct {
 	ID            string `json:"id"`
 	FileType      string `json:"file_type"`

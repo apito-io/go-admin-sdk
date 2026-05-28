@@ -148,11 +148,15 @@ Requires system GraphQL (`/system/graphql`) with an admin API key. Operations ar
 
 REST base URL is derived from `Config.BaseURL` by stripping `/graphql` (e.g. `http://host:5050/system`), or set `Config.RestBaseURL` explicitly.
 
+File **metadata** is stored in the **project database** `files` table (not the system DB). On Pro/SaaS engines, set `tenant_id` on the request context (`ctx` value) so operations target the tenant project DB. REST paths are unchanged: full URLs are `/system/files/upload`, `/system/files/list`, and `/system/files/delete`.
+
 | Method | Description |
 |--------|-------------|
 | `UploadFile(ctx, params)` | POST `/files/upload` (multipart). |
 | `ListFiles(ctx, fileType, limit, offset)` | GET `/files/list`. |
 | `DeleteFiles(ctx, ids)` | POST `/files/delete`. |
+
+Path constants: `FilesUploadPath`, `FilesListPath`, `FilesDeletePath`.
 
 On the engine system GraphQL API, `createTenant` accepts an optional `domain` argument; when it is set, the engine requires that domain to be unused in the project (otherwise the mutation fails with a clear error). `updateTenant` validates the same when changing `domain`. Use `executeGraphQL` if you need those catalog mutations from the SDK.
 

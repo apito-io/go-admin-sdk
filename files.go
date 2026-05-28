@@ -48,7 +48,8 @@ func mapToFile(m map[string]interface{}) File {
 	return f
 }
 
-// UploadFile uploads a file via POST /system/files/upload.
+// UploadFile uploads a project file via POST /system/files/upload.
+// Metadata is persisted in the project DB; blobs use project-scoped object storage.
 func (c *Client) UploadFile(ctx context.Context, params UploadFileParams) (*File, error) {
 	if len(params.Content) == 0 {
 		return nil, fmt.Errorf("uploadFile: file content is required")
@@ -60,7 +61,7 @@ func (c *Client) UploadFile(ctx context.Context, params UploadFileParams) (*File
 
 	body, status, err := c.executeREST(ctx, restRequest{
 		method: http.MethodPost,
-		path:   "/files/upload",
+		path:   FilesUploadPath,
 		multipartFn: func(w *multipart.Writer) error {
 			part, err := w.CreateFormFile("file", fileName)
 			if err != nil {
@@ -95,7 +96,7 @@ func (c *Client) UploadFile(ctx context.Context, params UploadFileParams) (*File
 	return &file, nil
 }
 
-// ListFiles lists files via GET /system/files/list.
+// ListFiles lists project files via GET /system/files/list.
 func (c *Client) ListFiles(ctx context.Context, fileType string, limit, offset int) (*FilesListResponse, error) {
 	q := url.Values{}
 	if strings.TrimSpace(fileType) != "" {
@@ -110,7 +111,7 @@ func (c *Client) ListFiles(ctx context.Context, fileType string, limit, offset i
 
 	body, status, err := c.executeREST(ctx, restRequest{
 		method: http.MethodGet,
-		path:   "/files/list",
+		path:   FilesListPath,
 		query:  q,
 	})
 	if err != nil {
@@ -140,14 +141,14 @@ func (c *Client) ListFiles(ctx context.Context, fileType string, limit, offset i
 	return resp, nil
 }
 
-// DeleteFiles deletes files via POST /system/files/delete.
+// DeleteFiles deletes project files via POST /system/files/delete.
 func (c *Client) DeleteFiles(ctx context.Context, ids []string) (*DeleteFilesResponse, error) {
 	if len(ids) == 0 {
 		return nil, fmt.Errorf("deleteFiles: ids are required")
 	}
 	body, status, err := c.executeREST(ctx, restRequest{
 		method:   http.MethodPost,
-		path:     "/files/delete",
+		path:     FilesDeletePath,
 		jsonBody: map[string]interface{}{"ids": ids},
 	})
 	if err != nil {
