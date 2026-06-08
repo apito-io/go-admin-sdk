@@ -135,7 +135,7 @@ Requires system GraphQL (`/system/graphql`) with an admin API key. Operations ar
 
 | Method | Description |
 |--------|-------------|
-| `LoginUser(ctx, projectID, LoginUserParams)` | General: **`Password`** + **`Email`** or **`Phone`**. Google **code** flow: **`AuthMethod: "google"`**, **`Code`**, **`State`**; use **`GoogleOAuthState`** first for **`State`**. |
+| `LoginUser(ctx, projectID, LoginUserParams)` | General: **`Password`** + **`Email`** or **`Phone`**. SaaS per-tenant DB: **`TenantID` required**. Google **code** flow: **`AuthMethod: "google"`**, **`Code`**, **`State`**; use **`GoogleOAuthState`** first for **`State`**. |
 | `GoogleOAuthState(ctx, projectID)` | Returns signed OAuth **`State`** string for building the Google authorize URL. |
 | `SearchUsers(ctx, projectID, limit, offset)` | List project end-users (`email`, `phone`, optional `tenant_id`). |
 | `SearchTenantsByDomain(ctx, projectID, domain)` | Resolve the single SaaS catalog tenant for an exact domain match in the project (`tenant` null if none). |
@@ -148,7 +148,7 @@ Requires system GraphQL (`/system/graphql`) with an admin API key. Operations ar
 
 REST base URL is derived from `Config.BaseURL` by stripping `/graphql` (e.g. `http://host:5050/system`), or set `Config.RestBaseURL` explicitly.
 
-File **metadata** is stored in the **project database** `files` table (not the system DB). On Pro/SaaS engines, set `tenant_id` on the request context (`ctx` value) so operations target the tenant project DB. REST paths are unchanged: full URLs are `/system/files/upload`, `/system/files/list`, and `/system/files/delete`.
+File **metadata** is stored in the **project database** `files` table (not the system DB). On Pro/SaaS engines, set `tenant_id` on the request context (`ctx` value) so operations target the tenant project DB. Default `RestBaseURL` resolves to `/secured` when GraphQL uses `/system/graphql`; full URLs are `/secured/files/upload`, `/secured/files/list`, and `/secured/files/delete`.
 
 | Method | Description |
 |--------|-------------|

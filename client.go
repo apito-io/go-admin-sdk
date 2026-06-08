@@ -60,7 +60,12 @@ func NewClient(config Config) *Client {
 func deriveRestBaseURL(graphqlURL string) string {
 	u := strings.TrimSuffix(strings.TrimSpace(graphqlURL), "/")
 	if strings.HasSuffix(u, "/graphql") {
-		return strings.TrimSuffix(u, "/graphql")
+		base := strings.TrimSuffix(u, "/graphql")
+		// Project file REST lives on /secured even when GraphQL uses /system/graphql.
+		if strings.HasSuffix(base, "/system") {
+			return strings.TrimSuffix(base, "/system") + "/secured"
+		}
+		return base
 	}
 	return u
 }
@@ -261,8 +266,8 @@ func (c *Client) LoginUser(ctx context.Context, projectID string, params LoginUs
 	}
 
 	query := `
-		query LoginUser($project_id: String!, $password: String, $auth_method: String, $email: String, $phone: String, $code: String, $state: String) {
-			loginUser(project_id: $project_id, password: $password, auth_method: $auth_method, email: $email, phone: $phone, code: $code, state: $state) {
+		query LoginUser($project_id: String!, $tenant_id: String, $password: String, $auth_method: String, $email: String, $phone: String, $code: String, $state: String, $id_token: String) {
+			loginUser(project_id: $project_id, tenant_id: $tenant_id, password: $password, auth_method: $auth_method, email: $email, phone: $phone, code: $code, state: $state, id_token: $id_token) {
 				token
 				user {
 					id
@@ -281,6 +286,9 @@ func (c *Client) LoginUser(ctx context.Context, projectID string, params LoginUs
 	variables := map[string]interface{}{
 		"project_id": projectID,
 	}
+	if tid := strings.TrimSpace(params.TenantID); tid != "" {
+		variables["tenant_id"] = tid
+	}
 	if authMethod == "google" {
 		if strings.TrimSpace(params.Code) == "" || strings.TrimSpace(params.State) == "" {
 			return nil, fmt.Errorf("loginUser: code and state are required for google auth_method")
@@ -288,6 +296,12 @@ func (c *Client) LoginUser(ctx context.Context, projectID string, params LoginUs
 		variables["auth_method"] = "google"
 		variables["code"] = strings.TrimSpace(params.Code)
 		variables["state"] = strings.TrimSpace(params.State)
+	} else if authMethod == "google_id_token" {
+		if strings.TrimSpace(params.IDToken) == "" {
+			return nil, fmt.Errorf("loginUser: id_token is required for google_id_token auth_method")
+		}
+		variables["auth_method"] = "google_id_token"
+		variables["id_token"] = strings.TrimSpace(params.IDToken)
 	} else {
 		if strings.TrimSpace(params.Password) == "" {
 			return nil, fmt.Errorf("loginUser: password is required")

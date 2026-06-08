@@ -1,0 +1,11 @@
+# Generated typed GraphQL client — run: make gen-types
+schema: codegen/schema.graphql
+operations:
+  - codegen/operations/*.graphql
+generated: generated/genqlient.go
+package: generated
+bindings:
+  DateTime:
+    type: string
+  JSON:
+    type: map[string]interface{}

@@ -1,0 +1,49 @@
+# Apito Admin SDK — Shared Contract
+
+All three admin SDKs (`flutter_admin_sdk`, `js-admin-sdk`, `go-admin-sdk`) share:
+
+## 1. Naming engine
+
+Golden vectors: `test/fixtures/naming_vectors.json` (canonical; copy verbatim to JS/Go).
+
+Reference implementations:
+- Dart: `lib/src/runtime/naming.dart`
+- TypeScript: `refine-apito/src/apitoGraphqlNames.ts` (vendored in JS as `src/naming/apitoGraphqlNames.ts`)
+- Go: `naming.go`
+
+## 2. Introspection snapshot
+
+Offline codegen uses a checked-in introspection JSON:
+- Flutter: `example/apito_introspection.json`
+- JS: `schema/apito_introspection.json`
+- Go: `schema/apito_introspection.json`
+
+Live fetch fallback: POST introspection query with `X-Apito-Key` + optional `X-Apito-Tenant-ID`.
+
+## 3. Operation doc format (5 ops per model)
+
+Each model emits:
+1. `Get{Model}List` — list + count
+2. `Get{Model}` — single by `_id`
+3. `Create{Model}` — create mutation
+4. `Update{Model}` — update mutation
+5. `Delete{Model}` — delete mutation
+
+Uses Apito composed type names (`{Model}List_Input_Where_Payload`, `{Model}_Create_Payload`, etc.).
+
+Reference output: `example/lib/generated/operations/loan.graphql`.
+
+## 4. Admin client surface
+
+All SDKs expose:
+- **GraphQL CRUD** (secured endpoint chainable builder + system fallback)
+- **REST storage**: `uploadFile`, `listFiles`, `deleteFiles` at `/files/upload|list|delete`
+- **Auth/admin**: `generateTenantToken`, `loginUser`, `googleOAuthState`, `searchUsers`, `searchTenantsByDomain`, `createUser`, `updateUser`, `resetUserPassword`, `deleteUser`
+
+## 5. Codegen outputs
+
+| SDK | Tool | Hooks |
+|-----|------|-------|
+| JS | graphql-codegen | TanStack React Query |
+| Go | genqlient | Context-aware client wrappers |
+| Flutter | build_runner (custom) | Riverpod providers |

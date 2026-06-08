@@ -1,0 +1,145 @@
+# AUTO-GENERATED — DO NOT EDIT
+# Model: customer
+
+query GetCustomerList(
+    $connection: CUSTOMER_CONNECTION_FILTER_CONDITION
+    $where: CUSTOMERLIST_INPUT_WHERE_PAYLOAD
+    $whereCount: CUSTOMER_LIST_COUNT_INPUT_WHERE_PAYLOAD
+    $sort: CUSTOMERLIST_INPUT_SORT_PAYLOAD
+    $page: Int
+    $limit: Int
+) {
+  customerList(connection: $connection, where: $where, sort: $sort, page: $page, limit: $limit) {
+    id
+    data {
+      guarantor_name
+      name
+      business_id
+      customer_uid
+      notes
+      total_outstanding
+      customer_id
+      created_at
+      is_blacklisted
+      guarantor_phone
+      tenant_id
+      active_loans_count
+      phone
+      nid_number
+      updated_at
+      vendor_id
+      address
+    }
+    
+    meta {
+      created_at
+      status
+      updated_at
+    }
+  }    customerListCount(connection: $connection, where: $whereCount, page: $page, limit: $limit) {
+      total
+    }
+}
+
+query GetCustomer($id: String!) {
+  customer(_id: $id) {
+    id
+    data {
+      guarantor_name
+      name
+      business_id
+      customer_uid
+      notes
+      total_outstanding
+      customer_id
+      created_at
+      is_blacklisted
+      guarantor_phone
+      tenant_id
+      active_loans_count
+      phone
+      nid_number
+      updated_at
+      vendor_id
+      address
+    }
+    
+    meta {
+      created_at
+      status
+      updated_at
+    }
+  }
+}
+
+mutation CreateCustomer($payload: Customer_Create_Payload!, $connect: Customer_Relation_Connect_Payload) {
+  createCustomer(payload: $payload, connect: $connect, status: published) {
+    id
+    data {
+      guarantor_name
+      name
+      business_id
+      customer_uid
+      notes
+      total_outstanding
+      customer_id
+      created_at
+      is_blacklisted
+      guarantor_phone
+      tenant_id
+      active_loans_count
+      phone
+      nid_number
+      updated_at
+      vendor_id
+      address
+    }
+    meta {
+      created_at
+      status
+      updated_at
+    }
+  }
+}
+
+mutation UpdateCustomer(
+    $id: String!,
+    $deltaUpdate: Boolean,
+    $payload: Customer_Update_Payload!,
+    $connect: Customer_Relation_Connect_Payload,
+    $disconnect: Customer_Relation_Disconnect_Payload
+) {
+  updateCustomer(_id: $id, deltaUpdate: $deltaUpdate, payload: $payload, connect: $connect, disconnect: $disconnect, status: published) {
+    id
+    data {
+      guarantor_name
+      name
+      business_id
+      customer_uid
+      notes
+      total_outstanding
+      customer_id
+      created_at
+      is_blacklisted
+      guarantor_phone
+      tenant_id
+      active_loans_count
+      phone
+      nid_number
+      updated_at
+      vendor_id
+      address
+    }
+    meta {
+      created_at
+      status
+      updated_at
+    }
+  }
+}
+
+mutation DeleteCustomer($ids: [String]!) {
+  deleteCustomer(_ids: $ids) {
+    response
+  }
+}

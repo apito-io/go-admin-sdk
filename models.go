@@ -16,13 +16,17 @@ type User struct {
 // LoginUserParams configures login via system GraphQL loginUser.
 // Password path (AuthMethod empty or "general"): set Password plus Email or Phone per project Authentication.
 // Google path (AuthMethod "google"): set Code and State from OAuth callback; optionally use GoogleOAuthState first.
+// Native mobile (AuthMethod "google_id_token"): set IDToken from google_sign_in (server client id).
+// SaaS per-tenant separate DB: set TenantID (required by engine).
 type LoginUserParams struct {
+	TenantID   string
 	Password   string
 	Email      string
 	Phone      string
-	AuthMethod string // optional; "", "general", or "google"
+	AuthMethod string // optional; "", "general", "google", or "google_id_token"
 	Code       string // OAuth authorization code (Google)
 	State      string // OAuth state (from GoogleOAuthState or callback)
+	IDToken    string // Google ID token (native sign-in)
 }
 
 // GoogleOAuthStateResponse is returned by googleOAuthState.
@@ -72,7 +76,7 @@ type TenantByDomainResponse struct {
 	Tenant *TenantCatalogSearchRow `json:"tenant"`
 }
 
-// File is metadata for a project file returned by the /system/files REST API (stored in the project DB).
+// File is metadata for a project file returned by the /secured/files REST API (stored in the project DB).
 type File struct {
 	ID            string `json:"id"`
 	FileType      string `json:"file_type"`

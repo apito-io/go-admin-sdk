@@ -48,7 +48,7 @@ func mapToFile(m map[string]interface{}) File {
 	return f
 }
 
-// UploadFile uploads a project file via POST /system/files/upload.
+// UploadFile uploads a project file via POST /secured/files/upload.
 // Metadata is persisted in the project DB; blobs use project-scoped object storage.
 func (c *Client) UploadFile(ctx context.Context, params UploadFileParams) (*File, error) {
 	if len(params.Content) == 0 {
@@ -96,7 +96,7 @@ func (c *Client) UploadFile(ctx context.Context, params UploadFileParams) (*File
 	return &file, nil
 }
 
-// ListFiles lists project files via GET /system/files/list.
+// ListFiles lists project files via GET /secured/files/list.
 func (c *Client) ListFiles(ctx context.Context, fileType string, limit, offset int) (*FilesListResponse, error) {
 	q := url.Values{}
 	if strings.TrimSpace(fileType) != "" {
@@ -141,7 +141,7 @@ func (c *Client) ListFiles(ctx context.Context, fileType string, limit, offset i
 	return resp, nil
 }
 
-// DeleteFiles deletes project files via POST /system/files/delete.
+// DeleteFiles deletes project files via POST /secured/files/delete.
 func (c *Client) DeleteFiles(ctx context.Context, ids []string) (*DeleteFilesResponse, error) {
 	if len(ids) == 0 {
 		return nil, fmt.Errorf("deleteFiles: ids are required")

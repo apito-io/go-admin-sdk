@@ -1,0 +1,137 @@
+# AUTO-GENERATED — DO NOT EDIT
+# Model: payment
+
+query GetPaymentList(
+    $connection: PAYMENT_CONNECTION_FILTER_CONDITION
+    $where: PAYMENTLIST_INPUT_WHERE_PAYLOAD
+    $whereCount: PAYMENT_LIST_COUNT_INPUT_WHERE_PAYLOAD
+    $sort: PAYMENTLIST_INPUT_SORT_PAYLOAD
+    $page: Int
+    $limit: Int
+) {
+  paymentList(connection: $connection, where: $where, sort: $sort, page: $page, limit: $limit) {
+    id
+    data {
+      payment_id
+      amount
+      recorded_at
+      loan_id
+      customer_id
+      customer_name
+      vendor_id
+      recorded_by
+      tenant_id
+      notes
+      business_id
+      payment_method
+      payment_reference
+      installment_id
+      is_verified
+    }
+    
+    meta {
+      created_at
+      status
+      updated_at
+    }
+  }    paymentListCount(connection: $connection, where: $whereCount, page: $page, limit: $limit) {
+      total
+    }
+}
+
+query GetPayment($id: String!) {
+  payment(_id: $id) {
+    id
+    data {
+      payment_id
+      amount
+      recorded_at
+      loan_id
+      customer_id
+      customer_name
+      vendor_id
+      recorded_by
+      tenant_id
+      notes
+      business_id
+      payment_method
+      payment_reference
+      installment_id
+      is_verified
+    }
+    
+    meta {
+      created_at
+      status
+      updated_at
+    }
+  }
+}
+
+mutation CreatePayment($payload: Payment_Create_Payload!, $connect: Payment_Relation_Connect_Payload) {
+  createPayment(payload: $payload, connect: $connect, status: published) {
+    id
+    data {
+      payment_id
+      amount
+      recorded_at
+      loan_id
+      customer_id
+      customer_name
+      vendor_id
+      recorded_by
+      tenant_id
+      notes
+      business_id
+      payment_method
+      payment_reference
+      installment_id
+      is_verified
+    }
+    meta {
+      created_at
+      status
+      updated_at
+    }
+  }
+}
+
+mutation UpdatePayment(
+    $id: String!,
+    $deltaUpdate: Boolean,
+    $payload: Payment_Update_Payload!,
+    $connect: Payment_Relation_Connect_Payload,
+    $disconnect: Payment_Relation_Disconnect_Payload
+) {
+  updatePayment(_id: $id, deltaUpdate: $deltaUpdate, payload: $payload, connect: $connect, disconnect: $disconnect, status: published) {
+    id
+    data {
+      payment_id
+      amount
+      recorded_at
+      loan_id
+      customer_id
+      customer_name
+      vendor_id
+      recorded_by
+      tenant_id
+      notes
+      business_id
+      payment_method
+      payment_reference
+      installment_id
+      is_verified
+    }
+    meta {
+      created_at
+      status
+      updated_at
+    }
+  }
+}
+
+mutation DeletePayment($ids: [String]!) {
+  deletePayment(_ids: $ids) {
+    response
+  }
+}

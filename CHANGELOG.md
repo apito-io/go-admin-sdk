@@ -5,6 +5,38 @@ All notable changes to the Go Apito SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.0] - 2026-06-08
+
+### Added
+
+- **`LoginUser` `TenantID`** — optional `TenantID` on `LoginUserParams`; sent as GraphQL `tenant_id` on system `loginUser`. Required by engine for SaaS projects with per-tenant separate databases.
+
+### Changed
+
+- **Docs** — README auth table notes per-tenant DB login requires `TenantID`.
+
+## [2.4.0] - 2026-06-05
+
+### Added
+
+- **`LoginUser` `google_id_token`** — native mobile Google sign-in via `IDToken` on `LoginUserParams`.
+
+### Changed
+
+- **Project files REST** — default `RestBaseURL` resolves to `/secured` when GraphQL uses `/system/graphql`. Full paths: `/secured/files/upload|list|delete`.
+
+## [2.3.0] - 2026-06-05
+
+### Added
+
+- **Naming engine** (`naming.go`) — parity with `flutter_admin_sdk` / refine-apito; golden vectors in `test/fixtures/naming_vectors.json`
+- **Operation emitter** (`make gen-operations` / `cmd/apito-gen`) → `codegen/operations/*.graphql` + `schema.graphql`
+- **genqlient** config (`genqlient.yaml`, `make gen-types`) for typed GraphQL operations
+- **GraphQL doer** + **TypedModelOps** context-aware helpers (`TypedOps()`, `ListModel`, `GetModel`, `ExecuteRaw`)
+- **DocumentBuilder** — secured-endpoint operation string generation
+- **Schema reader** — introspection parsing + SDL export
+- Shared [CONTRACT.md](CONTRACT.md) with JS/Flutter admin SDKs
+
 ## [2.2.0] - 2026-05-28
 
 ### Changed
