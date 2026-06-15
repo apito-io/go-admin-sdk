@@ -258,7 +258,9 @@ func mapToTenantCatalogSearchRow(m map[string]interface{}) *TenantCatalogSearchR
 	return r
 }
 
-// LoginUser runs loginUser (password or Google OAuth code flow).
+// LoginUser runs loginUser (password or Google OAuth code / id_token flow).
+// Google paths may auto-link a verified email to an existing user; handle engine errors
+// "google email not verified", "google account already linked to another user", "multiple users matched this email".
 func (c *Client) LoginUser(ctx context.Context, projectID string, params LoginUserParams) (*LoginUserResponse, error) {
 	authMethod := strings.ToLower(strings.TrimSpace(params.AuthMethod))
 	if authMethod == "" {
@@ -464,6 +466,7 @@ func (c *Client) SearchTenantsByDomain(ctx context.Context, projectID, domain st
 }
 
 // CreateUser creates a local-password project user via system GraphQL mutation createUser.
+// Duplicate email/phone project-wide returns stable engine validation errors.
 func (c *Client) CreateUser(ctx context.Context, projectID string, params CreateUserParams) (*User, error) {
 	if strings.TrimSpace(params.Password) == "" {
 		return nil, fmt.Errorf("createUser: password is required")
@@ -512,6 +515,7 @@ func (c *Client) CreateUser(ctx context.Context, projectID string, params Create
 }
 
 // UpdateUser updates a project user by id (system GraphQL updateUser). Project scope comes from the API key.
+// Duplicate email/phone project-wide returns stable engine validation errors.
 func (c *Client) UpdateUser(ctx context.Context, userID string, params UpdateUserParams) (*User, error) {
 	if strings.TrimSpace(userID) == "" {
 		return nil, fmt.Errorf("updateUser: user id is required")

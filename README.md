@@ -135,12 +135,12 @@ Requires system GraphQL (`/system/graphql`) with an admin API key. Operations ar
 
 | Method | Description |
 |--------|-------------|
-| `LoginUser(ctx, projectID, LoginUserParams)` | General: **`Password`** + **`Email`** or **`Phone`**. SaaS per-tenant DB: **`TenantID` required**. Google **code** flow: **`AuthMethod: "google"`**, **`Code`**, **`State`**; use **`GoogleOAuthState`** first for **`State`**. |
+| `LoginUser(ctx, projectID, LoginUserParams)` | General: **`Password`** + **`Email`** or **`Phone`**. SaaS per-tenant DB: **`TenantID` required**. Google **code** flow: **`AuthMethod: "google"`**, **`Code`**, **`State`**; use **`GoogleOAuthState`** first for **`State`**. Google login may link a verified email to an existing user instead of creating a duplicate. |
 | `GoogleOAuthState(ctx, projectID)` | Returns signed OAuth **`State`** string for building the Google authorize URL. |
 | `SearchUsers(ctx, projectID, limit, offset)` | List project end-users (`email`, `phone`, optional `tenant_id`). |
 | `SearchTenantsByDomain(ctx, projectID, domain)` | Resolve the single SaaS catalog tenant for an exact domain match in the project (`tenant` null if none). |
-| `CreateUser(ctx, projectID, CreateUserParams)` | Create a local-password user; **`Password`**, optional **`Role`**, **`Email`**, **`Phone`**. |
-| `UpdateUser(ctx, userID, UpdateUserParams)` | Update **`email`**, **`phone`**, **`role`** (non-nil **`*string` pointers only**). |
+| `CreateUser(ctx, projectID, CreateUserParams)` | Create a local-password user; **`Password`**, optional **`Role`**, **`Email`**, **`Phone`**. Engine rejects duplicate email/phone project-wide. |
+| `UpdateUser(ctx, userID, UpdateUserParams)` | Update **`email`**, **`phone`**, **`role`** (non-nil **`*string` pointers only**). Engine rejects duplicate email/phone project-wide. |
 | `ResetUserPassword(ctx, userID, password)` | Set a new password (admin mutation). |
 | `DeleteUser(ctx, userID)` | Hard-delete a user (returns bool from GraphQL). |
 

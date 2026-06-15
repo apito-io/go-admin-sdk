@@ -18,6 +18,8 @@ type User struct {
 // Google path (AuthMethod "google"): set Code and State from OAuth callback; optionally use GoogleOAuthState first.
 // Native mobile (AuthMethod "google_id_token"): set IDToken from google_sign_in (server client id).
 // SaaS per-tenant separate DB: set TenantID (required by engine).
+// Google paths: engine may auto-link a verified email to an existing user; errors include
+// "google email not verified", "google account already linked to another user", "multiple users matched this email".
 type LoginUserParams struct {
 	TenantID   string
 	Password   string
@@ -36,6 +38,8 @@ type GoogleOAuthStateResponse struct {
 
 // CreateUserParams configures createUser. The engine requires an email or phone
 // according to the project's general authentication identifier mode.
+// Duplicate email/phone project-wide returns "email already exists for this project" or
+// "phone already exists for this project".
 type CreateUserParams struct {
 	Password string
 	Role     string // optional; engine defaults when empty
@@ -44,6 +48,7 @@ type CreateUserParams struct {
 }
 
 // UpdateUserParams lists optional fields for updateUser. Nil pointers are omitted from the mutation.
+// Duplicate email/phone project-wide returns stable engine validation errors.
 type UpdateUserParams struct {
 	Email *string
 	Phone *string
