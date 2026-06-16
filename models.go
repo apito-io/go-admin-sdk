@@ -40,19 +40,23 @@ type GoogleOAuthStateResponse struct {
 // according to the project's general authentication identifier mode.
 // Duplicate email/phone project-wide returns "email already exists for this project" or
 // "phone already exists for this project".
+// Pro SaaS: set TenantID (catalog tenant); sent as GraphQL tenant_id.
 type CreateUserParams struct {
 	Password string
 	Role     string // optional; engine defaults when empty
 	Email    string
 	Phone    string
+	TenantID string
 }
 
 // UpdateUserParams lists optional fields for updateUser. Nil pointers are omitted from the mutation.
 // Duplicate email/phone project-wide returns stable engine validation errors.
+// Pro SaaS: TenantID scopes the admin operation (GraphQL tenant_id).
 type UpdateUserParams struct {
-	Email *string
-	Phone *string
-	Role  *string
+	Email    *string
+	Phone    *string
+	Role     *string
+	TenantID *string
 }
 
 // LoginUserResponse is returned by loginUser (general or Google code flow).
@@ -79,6 +83,34 @@ type TenantCatalogSearchRow struct {
 // TenantByDomainResponse is returned by searchTenantsByDomain (at most one match per project).
 type TenantByDomainResponse struct {
 	Tenant *TenantCatalogSearchRow `json:"tenant"`
+}
+
+// TenantCatalogListItem is one row from getTenants (includes icon from catalog data JSON).
+type TenantCatalogListItem struct {
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Domain string `json:"domain,omitempty"`
+	Icon   string `json:"icon,omitempty"`
+	Data   string `json:"data,omitempty"`
+}
+
+// GetTenantsResponse is returned by getTenants.
+type GetTenantsResponse struct {
+	Tenants []*TenantCatalogListItem `json:"tenants"`
+}
+
+// CreateTenantParams configures createTenant on system GraphQL (SaaS catalog only).
+type CreateTenantParams struct {
+	Name   string
+	Data   string // optional JSON string stored on catalog row
+	Domain string
+}
+
+// UpdateTenantParams configures updateTenant. Empty strings are omitted except when clearing domain via explicit empty if needed.
+type UpdateTenantParams struct {
+	Name   *string
+	Data   *string
+	Domain *string
 }
 
 // File is metadata for a project file returned by the /secured/files REST API (stored in the project DB).

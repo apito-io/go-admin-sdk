@@ -369,11 +369,11 @@ func (c *Client) GoogleOAuthState(ctx context.Context, projectID string) (*Googl
 	return &GoogleOAuthStateResponse{State: state}, nil
 }
 
-// SearchUsers lists project end-users.
-func (c *Client) SearchUsers(ctx context.Context, projectID string, limit, offset int) (*UsersResponse, error) {
+// SearchUsers lists project end-users. tenantID is optional (pro SaaS catalog tenant filter).
+func (c *Client) SearchUsers(ctx context.Context, projectID string, limit, offset int, tenantID string) (*UsersResponse, error) {
 	query := `
-		query SearchUsers($project_id: String!, $limit: Int, $offset: Int) {
-			searchUsers(project_id: $project_id, limit: $limit, offset: $offset) {
+		query SearchUsers($project_id: String!, $limit: Int, $offset: Int, $tenant_id: String) {
+			searchUsers(project_id: $project_id, limit: $limit, offset: $offset, tenant_id: $tenant_id) {
 				count
 				users {
 					id
@@ -393,6 +393,9 @@ func (c *Client) SearchUsers(ctx context.Context, projectID string, limit, offse
 		"project_id": projectID,
 		"limit":      limit,
 		"offset":     offset,
+	}
+	if tid := strings.TrimSpace(tenantID); tid != "" {
+		variables["tenant_id"] = tid
 	}
 	response, err := c.executeGraphQL(ctx, query, variables)
 	if err != nil {
@@ -465,6 +468,178 @@ func (c *Client) SearchTenantsByDomain(ctx context.Context, projectID, domain st
 	return &TenantByDomainResponse{Tenant: mapToTenantCatalogSearchRow(tm)}, nil
 }
 
+func mapToTenantCatalogListItem(m map[string]interface{}) *TenantCatalogListItem {
+	if m == nil {
+		return nil
+	}
+	r := &TenantCatalogListItem{}
+	if v, ok := m["id"].(string); ok {
+		r.ID = v
+	}
+	if v, ok := m["name"].(string); ok {
+		r.Name = v
+	}
+	if v, ok := m["domain"].(string); ok {
+		r.Domain = v
+	}
+	if v, ok := m["icon"].(string); ok {
+		r.Icon = v
+	}
+	if v, ok := m["data"].(string); ok {
+		r.Data = v
+	}
+	return r
+}
+
+// GetTenants lists SaaS catalog tenants for the authenticated project (system GraphQL only).
+func (c *Client) GetTenants(ctx context.Context) (*GetTenantsResponse, error) {
+	query := `
+		query GetTenants {
+			getTenants {
+				tenants {
+					id
+					name
+					domain
+					icon
+					data
+				}
+			}
+		}
+	`
+	response, err := c.executeGraphQL(ctx, query, nil)
+	if err != nil {
+		return nil, fmt.Errorf("getTenants: %w", err)
+	}
+	data, ok := response.Data.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unexpected response format")
+	}
+	raw, ok := data["getTenants"].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unexpected getTenants response")
+	}
+	var tenants []*TenantCatalogListItem
+	if arr, ok := raw["tenants"].([]interface{}); ok {
+		for _, it := range arr {
+			if m, ok := it.(map[string]interface{}); ok {
+				tenants = append(tenants, mapToTenantCatalogListItem(m))
+			}
+		}
+	}
+	return &GetTenantsResponse{Tenants: tenants}, nil
+}
+
+// CreateTenant provisions a SaaS catalog tenant (system GraphQL only; not /secured/graphql).
+func (c *Client) CreateTenant(ctx context.Context, params CreateTenantParams) (*TenantCatalogSearchRow, error) {
+	name := strings.TrimSpace(params.Name)
+	if name == "" {
+		return nil, fmt.Errorf("createTenant: name is required")
+	}
+	query := `
+		mutation CreateTenant($name: String!, $data: String, $domain: String) {
+			createTenant(name: $name, data: $data, domain: $domain) {
+				id
+				name
+				status
+				domain
+				data
+			}
+		}
+	`
+	variables := map[string]interface{}{"name": name}
+	if d := strings.TrimSpace(params.Data); d != "" {
+		variables["data"] = d
+	}
+	if dom := strings.TrimSpace(params.Domain); dom != "" {
+		variables["domain"] = dom
+	}
+	response, err := c.executeGraphQL(ctx, query, variables)
+	if err != nil {
+		return nil, fmt.Errorf("createTenant: %w", err)
+	}
+	data, ok := response.Data.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unexpected response format")
+	}
+	row, ok := data["createTenant"].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unexpected createTenant response")
+	}
+	return mapToTenantCatalogSearchRow(row), nil
+}
+
+// UpdateTenant updates name/data/domain on a catalog tenant row.
+func (c *Client) UpdateTenant(ctx context.Context, tenantID string, params UpdateTenantParams) (*TenantCatalogSearchRow, error) {
+	tid := strings.TrimSpace(tenantID)
+	if tid == "" {
+		return nil, fmt.Errorf("updateTenant: tenantID is required")
+	}
+	if params.Name == nil && params.Data == nil && params.Domain == nil {
+		return nil, fmt.Errorf("updateTenant: at least one field must be provided")
+	}
+	query := `
+		mutation UpdateTenant($tenant_id: String!, $name: String, $data: String, $domain: String) {
+			updateTenant(tenant_id: $tenant_id, name: $name, data: $data, domain: $domain) {
+				id
+				name
+				status
+				domain
+				data
+			}
+		}
+	`
+	variables := map[string]interface{}{"tenant_id": tid}
+	if params.Name != nil {
+		variables["name"] = *params.Name
+	}
+	if params.Data != nil {
+		variables["data"] = *params.Data
+	}
+	if params.Domain != nil {
+		variables["domain"] = *params.Domain
+	}
+	response, err := c.executeGraphQL(ctx, query, variables)
+	if err != nil {
+		return nil, fmt.Errorf("updateTenant: %w", err)
+	}
+	data, ok := response.Data.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unexpected response format")
+	}
+	row, ok := data["updateTenant"].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unexpected updateTenant response")
+	}
+	return mapToTenantCatalogSearchRow(row), nil
+}
+
+// DeleteTenant removes a tenant from the system catalog (hard delete).
+func (c *Client) DeleteTenant(ctx context.Context, tenantID string) (bool, error) {
+	tid := strings.TrimSpace(tenantID)
+	if tid == "" {
+		return false, fmt.Errorf("deleteTenant: tenantID is required")
+	}
+	query := `
+		mutation DeleteTenant($tenant_id: String!) {
+			deleteTenant(tenant_id: $tenant_id)
+		}
+	`
+	variables := map[string]interface{}{"tenant_id": tid}
+	response, err := c.executeGraphQL(ctx, query, variables)
+	if err != nil {
+		return false, fmt.Errorf("deleteTenant: %w", err)
+	}
+	data, ok := response.Data.(map[string]interface{})
+	if !ok {
+		return false, fmt.Errorf("unexpected response format")
+	}
+	okVal, ok := data["deleteTenant"].(bool)
+	if !ok {
+		return false, fmt.Errorf("unexpected deleteTenant response")
+	}
+	return okVal, nil
+}
+
 // CreateUser creates a local-password project user via system GraphQL mutation createUser.
 // Duplicate email/phone project-wide returns stable engine validation errors.
 func (c *Client) CreateUser(ctx context.Context, projectID string, params CreateUserParams) (*User, error) {
@@ -472,8 +647,8 @@ func (c *Client) CreateUser(ctx context.Context, projectID string, params Create
 		return nil, fmt.Errorf("createUser: password is required")
 	}
 	query := `
-		mutation CreateUser($project_id: String!, $password: String!, $role: String, $email: String, $phone: String) {
-			createUser(project_id: $project_id, password: $password, role: $role, email: $email, phone: $phone) {
+		mutation CreateUser($project_id: String!, $password: String!, $role: String, $email: String, $phone: String, $tenant_id: String) {
+			createUser(project_id: $project_id, password: $password, role: $role, email: $email, phone: $phone, tenant_id: $tenant_id) {
 				id
 				email
 				phone
@@ -499,6 +674,9 @@ func (c *Client) CreateUser(ctx context.Context, projectID string, params Create
 	if strings.TrimSpace(params.Phone) != "" {
 		variables["phone"] = strings.TrimSpace(params.Phone)
 	}
+	if tid := strings.TrimSpace(params.TenantID); tid != "" {
+		variables["tenant_id"] = tid
+	}
 	response, err := c.executeGraphQL(ctx, query, variables)
 	if err != nil {
 		return nil, fmt.Errorf("createUser: %w", err)
@@ -520,13 +698,13 @@ func (c *Client) UpdateUser(ctx context.Context, userID string, params UpdateUse
 	if strings.TrimSpace(userID) == "" {
 		return nil, fmt.Errorf("updateUser: user id is required")
 	}
-	has := params.Email != nil || params.Phone != nil || params.Role != nil
+	has := params.Email != nil || params.Phone != nil || params.Role != nil || params.TenantID != nil
 	if !has {
 		return nil, fmt.Errorf("updateUser: at least one field must be set")
 	}
 	query := `
-		mutation UpdateUser($user_id: String!, $email: String, $phone: String, $role: String) {
-			updateUser(user_id: $user_id, email: $email, phone: $phone, role: $role) {
+		mutation UpdateUser($user_id: String!, $email: String, $phone: String, $role: String, $tenant_id: String) {
+			updateUser(user_id: $user_id, email: $email, phone: $phone, role: $role, tenant_id: $tenant_id) {
 				id
 				email
 				phone
@@ -548,6 +726,9 @@ func (c *Client) UpdateUser(ctx context.Context, userID string, params UpdateUse
 	}
 	if params.Role != nil {
 		variables["role"] = *params.Role
+	}
+	if params.TenantID != nil {
+		variables["tenant_id"] = *params.TenantID
 	}
 	response, err := c.executeGraphQL(ctx, query, variables)
 	if err != nil {
