@@ -5,6 +5,12 @@ All notable changes to the Go Apito SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.6.1] - 2026-06-22
+
+### Changed
+
+- **Cloudflare Workers v1 (`cloudflare_full`)** — Document engine compatibility: `GenerateTenantToken` and related tenant catalog mutations return `tenant management is not available on Cloudflare Workers v1`. `LoginUser` password/general path is unchanged on Workers; Google paths (`AuthMethod: "google"` / `"google_id_token"`, plus `GoogleOAuthState`) return `google login is not available on Cloudflare Workers v1`. No SDK API or signature changes — use the native/pro engine for tenant provisioning and Google end-user login, or handle these GraphQL errors when targeting a Workers URL.
+
 ## [2.6.0] - 2026-06-11
 
 ### Added

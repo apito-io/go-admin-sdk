@@ -141,6 +141,8 @@ func (c *Client) executeGraphQL(ctx context.Context, query string, variables map
 // If duration is empty, a default of one calendar year ahead in UTC is used.
 //
 // role is optional; when empty the engine defaults the token role to "admin".
+//
+// Not available on Cloudflare Workers v1 ("tenant management is not available on Cloudflare Workers v1").
 func (c *Client) GenerateTenantToken(ctx context.Context, tenantID, duration, role string) (string, error) {
 	if strings.TrimSpace(tenantID) == "" {
 		return "", fmt.Errorf("tenantID is required")
@@ -261,6 +263,7 @@ func mapToTenantCatalogSearchRow(m map[string]interface{}) *TenantCatalogSearchR
 // LoginUser runs loginUser (password or Google OAuth code / id_token flow).
 // Google paths may auto-link a verified email to an existing user; handle engine errors
 // "google email not verified", "google account already linked to another user", "multiple users matched this email".
+// On Cloudflare Workers v1, Google paths are unavailable; password login is supported.
 func (c *Client) LoginUser(ctx context.Context, projectID string, params LoginUserParams) (*LoginUserResponse, error) {
 	authMethod := strings.ToLower(strings.TrimSpace(params.AuthMethod))
 	if authMethod == "" {

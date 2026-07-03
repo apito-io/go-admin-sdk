@@ -23,6 +23,8 @@ A comprehensive Go SDK for communicating with Apito GraphQL API endpoints. This 
 go get github.com/apito-io/go-admin-sdk
 ```
 
+**Cloudflare Workers engine (`cloudflare_full`):** If `Config.BaseURL` points at a Workers-hosted engine, `GenerateTenantToken` and tenant catalog mutations are not implemented on Workers v1. `LoginUser` password login works; Google OAuth does not. See [CONTRACT.md](CONTRACT.md#cloudflare-workers-v1-cloudflare_full).
+
 When building this repository from a checkout that vendors **`github.com/apito-io/types`** via `replace ... => ../types`, keep the **`types`** module cloned as a sibling directory (`../types` relative to this module root). Remove the `replace` line after upgrading **`go.mod`** to a published **`types`** release that includes the matching **`InternalSDKOperation.GenerateTenantToken`** signature.
 
 ## 🎯 Quick Start

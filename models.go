@@ -20,6 +20,7 @@ type User struct {
 // SaaS per-tenant separate DB: set TenantID (required by engine).
 // Google paths: engine may auto-link a verified email to an existing user; errors include
 // "google email not verified", "google account already linked to another user", "multiple users matched this email".
+// On Cloudflare Workers v1, Google paths are unavailable ("google login is not available on Cloudflare Workers v1"); password login is supported.
 type LoginUserParams struct {
 	TenantID   string
 	Password   string

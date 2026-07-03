@@ -1,11 +1,15 @@
 # Go Admin SDK — Cross-SDK Sync Summary
 
-**Package:** `github.com/apito-io/go-admin-sdk` (v2.6.0)  
-**Aligned with:** `flutter_admin_sdk` v0.5.0, `js-admin-sdk` v3.7.0
+**Package:** `github.com/apito-io/go-admin-sdk` (v2.6.1)  
+**Aligned with:** `flutter_admin_sdk` v0.6.1, `js-admin-sdk` v3.7.1
 
 ## Shared contract
 
 See [CONTRACT.md](CONTRACT.md).
+
+## v2.6.1 (2026-06-22)
+
+- **Cloudflare Workers v1** — document `GenerateTenantToken` / tenant catalog and Google `LoginUser` limitations on Workers; password `LoginUser` unchanged
 
 ## v2.6.0 (2026-06-11)
 
