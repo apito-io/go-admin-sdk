@@ -1,5 +1,7 @@
 ---
-alwaysApply: true
+description: Knowledge entry point for go-admin-sdk — read .knowledge/README.md before coding in apito/sdk/go-admin-sdk
+globs: apito/sdk/go-admin-sdk/**
+alwaysApply: false
 ---
 
 # Knowledge base — go-admin-sdk
