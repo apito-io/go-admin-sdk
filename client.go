@@ -373,10 +373,11 @@ func (c *Client) GoogleOAuthState(ctx context.Context, projectID string) (*Googl
 }
 
 // SearchUsers lists project end-users. tenantID is optional (pro SaaS catalog tenant filter).
-func (c *Client) SearchUsers(ctx context.Context, projectID string, limit, offset int, tenantID string) (*UsersResponse, error) {
+// q is optional free-text filter on email, username, phone, or id (case-insensitive contains).
+func (c *Client) SearchUsers(ctx context.Context, projectID string, limit, offset int, tenantID, q string) (*UsersResponse, error) {
 	query := `
-		query SearchUsers($project_id: String!, $limit: Int, $offset: Int, $tenant_id: String) {
-			searchUsers(project_id: $project_id, limit: $limit, offset: $offset, tenant_id: $tenant_id) {
+		query SearchUsers($project_id: String!, $limit: Int, $offset: Int, $tenant_id: String, $q: String) {
+			searchUsers(project_id: $project_id, limit: $limit, offset: $offset, tenant_id: $tenant_id, q: $q) {
 				count
 				users {
 					id
@@ -399,6 +400,9 @@ func (c *Client) SearchUsers(ctx context.Context, projectID string, limit, offse
 	}
 	if tid := strings.TrimSpace(tenantID); tid != "" {
 		variables["tenant_id"] = tid
+	}
+	if needle := strings.TrimSpace(q); needle != "" {
+		variables["q"] = needle
 	}
 	response, err := c.executeGraphQL(ctx, query, variables)
 	if err != nil {

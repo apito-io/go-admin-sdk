@@ -56,7 +56,7 @@ func TestUserCRUDTenantIDWiring(t *testing.T) {
 
 	t.Run("SearchUsers", func(t *testing.T) {
 		lastVars = nil
-		_, err := client.SearchUsers(ctx, "proj", 10, 0, "tenant-abc")
+		_, err := client.SearchUsers(ctx, "proj", 10, 0, "tenant-abc", "")
 		if err != nil {
 			t.Fatalf("SearchUsers: %v", err)
 		}
@@ -67,12 +67,34 @@ func TestUserCRUDTenantIDWiring(t *testing.T) {
 
 	t.Run("SearchUsers omits empty tenant", func(t *testing.T) {
 		lastVars = nil
-		_, err := client.SearchUsers(ctx, "proj", 10, 0, "")
+		_, err := client.SearchUsers(ctx, "proj", 10, 0, "", "")
 		if err != nil {
 			t.Fatalf("SearchUsers: %v", err)
 		}
 		if _, ok := lastVars["tenant_id"]; ok {
 			t.Fatalf("expected no tenant_id, got %v", lastVars["tenant_id"])
+		}
+	})
+
+	t.Run("SearchUsers sends q when set", func(t *testing.T) {
+		lastVars = nil
+		_, err := client.SearchUsers(ctx, "proj", 10, 0, "tenant-abc", "alice")
+		if err != nil {
+			t.Fatalf("SearchUsers: %v", err)
+		}
+		if lastVars["q"] != "alice" {
+			t.Fatalf("q = %v", lastVars["q"])
+		}
+	})
+
+	t.Run("SearchUsers omits empty q", func(t *testing.T) {
+		lastVars = nil
+		_, err := client.SearchUsers(ctx, "proj", 10, 0, "tenant-abc", "")
+		if err != nil {
+			t.Fatalf("SearchUsers: %v", err)
+		}
+		if _, ok := lastVars["q"]; ok {
+			t.Fatalf("expected no q, got %v", lastVars["q"])
 		}
 	})
 

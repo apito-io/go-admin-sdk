@@ -33,7 +33,7 @@ func main() {
 	})
 	ctx := context.Background()
 
-	list, err := client.SearchUsers(ctx, projectID, 50, 0, "")
+	list, err := client.SearchUsers(ctx, projectID, 50, 0, "", "")
 	if err != nil {
 		log.Fatalf("SearchUsers: %v", err)
 	}

@@ -515,7 +515,7 @@ func TestUserProIntegration(t *testing.T) {
 	client := getTestClient()
 	ctx := context.Background()
 
-	list, err := client.SearchUsers(ctx, projectID, 10, 0, "")
+	list, err := client.SearchUsers(ctx, projectID, 10, 0, "", "")
 	if err != nil {
 		t.Logf("SearchUsers failed: %v", err)
 		return

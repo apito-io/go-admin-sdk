@@ -1,11 +1,15 @@
 # Go Admin SDK — Cross-SDK Sync Summary
 
-**Package:** `github.com/apito-io/go-admin-sdk` (v2.6.1)  
-**Aligned with:** `flutter_admin_sdk` v0.6.1, `js-admin-sdk` v3.7.1
+**Package:** `github.com/apito-io/go-admin-sdk` (v2.6.2)  
+**Aligned with:** `flutter_admin_sdk` v0.6.3, `js-admin-sdk` v3.7.1
 
 ## Shared contract
 
 See [CONTRACT.md](CONTRACT.md).
+
+## v2.6.2 (2026-07-11)
+
+- **`SearchUsers` optional `q`** — 6th arg filters email, username, phone, or id
 
 ## v2.6.1 (2026-06-22)
 
