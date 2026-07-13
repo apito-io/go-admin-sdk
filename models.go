@@ -72,18 +72,26 @@ type UsersResponse struct {
 	Count int     `json:"count"`
 }
 
-// TenantCatalogSearchRow is one catalog tenant row from searchTenantsByDomain.
+// TenantCatalogSearchRow is one catalog tenant row from searchTenants or searchTenantsByDomain.
 type TenantCatalogSearchRow struct {
-	ID     string `json:"id"`
-	Name   string `json:"name"`
-	Status string `json:"status"`
-	Domain string `json:"domain"`
-	Data   string `json:"data"`
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Status    string `json:"status"`
+	Domain    string `json:"domain"`
+	Data      string `json:"data"`
+	Icon      string `json:"icon,omitempty"`
+	CreatedAt string `json:"created_at,omitempty"`
 }
 
 // TenantByDomainResponse is returned by searchTenantsByDomain (at most one match per project).
 type TenantByDomainResponse struct {
 	Tenant *TenantCatalogSearchRow `json:"tenant"`
+}
+
+// SearchTenantsResponse is returned by searchTenants.
+type SearchTenantsResponse struct {
+	Tenants []*TenantCatalogSearchRow `json:"tenants"`
+	Count   int                       `json:"count"`
 }
 
 // TenantCatalogListItem is one row from getTenants (includes icon from catalog data JSON).

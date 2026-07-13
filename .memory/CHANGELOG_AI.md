@@ -4,6 +4,11 @@ Not git history — the *reasoning* behind changes. Newest on top.
 Format per entry: date, **Changed**, **Why**, **Affected**.
 
 ---
+## 2026-07-13
+- **Changed:** `SearchTenants(ctx, projectID, limit, offset, q)` + `SearchTenantsResponse`; `TenantCatalogSearchRow` gains `icon`, `created_at`. `/sync-sdk-all apply go` after tenant user-parity.
+- **Why:** Only catalog search gap vs JS/Flutter/engine; Kisti and Console use `searchTenants` for catalog counts.
+- **Affected:** `client.go`, `models.go`, `tenant_catalog_test.go`, `CHANGELOG.md`, `CONTRACT.md`, `README.md`
+
 ## 2026-07-06
 - **Changed:** Bootstrapped knowledge system for this repo.
 - **Why:** Cross-LLM durable knowledge + working memory.
