@@ -257,6 +257,12 @@ func mapToTenantCatalogSearchRow(m map[string]interface{}) *TenantCatalogSearchR
 	if v, ok := m["data"].(string); ok {
 		r.Data = v
 	}
+	if v, ok := m["icon"].(string); ok {
+		r.Icon = v
+	}
+	if v, ok := m["created_at"].(string); ok {
+		r.CreatedAt = v
+	}
 	return r
 }
 
@@ -475,6 +481,75 @@ func (c *Client) SearchTenantsByDomain(ctx context.Context, projectID, domain st
 	return &TenantByDomainResponse{Tenant: mapToTenantCatalogSearchRow(tm)}, nil
 }
 
+// SearchTenants lists SaaS catalog tenants with optional pagination, free-text filter, and status filter (system GraphQL only).
+// q filters name, id, domain, and data (case-insensitive contains).
+// status: active (default), deleted, or all.
+func (c *Client) SearchTenants(ctx context.Context, projectID string, limit, offset int, q, status string) (*SearchTenantsResponse, error) {
+	pid := strings.TrimSpace(projectID)
+	if pid == "" {
+		return nil, fmt.Errorf("searchTenants: projectID is required")
+	}
+	query := `
+		query SearchTenants($project_id: String!, $limit: Int, $offset: Int, $q: String, $status: String) {
+			searchTenants(project_id: $project_id, limit: $limit, offset: $offset, q: $q, status: $status) {
+				count
+				tenants {
+					id
+					name
+					status
+					domain
+					icon
+					data
+					created_at
+				}
+			}
+		}
+	`
+	variables := map[string]interface{}{
+		"project_id": pid,
+	}
+	if limit > 0 {
+		variables["limit"] = limit
+	}
+	if offset > 0 {
+		variables["offset"] = offset
+	}
+	if needle := strings.TrimSpace(q); needle != "" {
+		variables["q"] = needle
+	}
+	if statusFilter := strings.TrimSpace(status); statusFilter != "" {
+		variables["status"] = statusFilter
+	}
+	response, err := c.executeGraphQL(ctx, query, variables)
+	if err != nil {
+		return nil, fmt.Errorf("searchTenants: %w", err)
+	}
+	data, ok := response.Data.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unexpected response format")
+	}
+	raw, ok := data["searchTenants"].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unexpected searchTenants response")
+	}
+	count := 0
+	if v, ok := raw["count"].(float64); ok {
+		count = int(v)
+	}
+	if v, ok := raw["count"].(int); ok {
+		count = v
+	}
+	var tenants []*TenantCatalogSearchRow
+	if arr, ok := raw["tenants"].([]interface{}); ok {
+		for _, it := range arr {
+			if m, ok := it.(map[string]interface{}); ok {
+				tenants = append(tenants, mapToTenantCatalogSearchRow(m))
+			}
+		}
+	}
+	return &SearchTenantsResponse{Tenants: tenants, Count: count}, nil
+}
+
 func mapToTenantCatalogListItem(m map[string]interface{}) *TenantCatalogListItem {
 	if m == nil {
 		return nil
@@ -620,7 +695,7 @@ func (c *Client) UpdateTenant(ctx context.Context, tenantID string, params Updat
 	return mapToTenantCatalogSearchRow(row), nil
 }
 
-// DeleteTenant removes a tenant from the system catalog (hard delete).
+// DeleteTenant soft-deletes a tenant from the system catalog (status=deleted).
 func (c *Client) DeleteTenant(ctx context.Context, tenantID string) (bool, error) {
 	tid := strings.TrimSpace(tenantID)
 	if tid == "" {

@@ -140,6 +140,8 @@ Requires system GraphQL (`/system/graphql`) with an admin API key. Operations ar
 | `LoginUser(ctx, projectID, LoginUserParams)` | General: **`Password`** + **`Email`** or **`Phone`**. SaaS per-tenant DB: **`TenantID` required**. Google **code** flow: **`AuthMethod: "google"`**, **`Code`**, **`State`**; use **`GoogleOAuthState`** first for **`State`**. Google login may link a verified email to an existing user instead of creating a duplicate. |
 | `GoogleOAuthState(ctx, projectID)` | Returns signed OAuth **`State`** string for building the Google authorize URL. |
 | `SearchUsers(ctx, projectID, limit, offset, tenantID, q)` | List project end-users. Pro SaaS: pass **`tenantID`** to filter by catalog tenant (empty string omits). Optional **`q`** filters email, username, phone, or id (case-insensitive contains). |
+| `SearchTenants(ctx, projectID, limit, offset, q, status)` | Paginated SaaS catalog search (`count` + rows). Optional **`q`** filters name, id, domain, and data. Optional **`status`**: `active` (default), `deleted`, or `all`. Prefer over `getTenants` on large catalogs. |
+| `GetTenants(ctx)` | List all catalog tenants (unbounded). |
 | `SearchTenantsByDomain(ctx, projectID, domain)` | Resolve the single SaaS catalog tenant for an exact domain match in the project (`tenant` null if none). |
 | `CreateUser(ctx, projectID, CreateUserParams)` | Create a local-password user; **`Password`**, optional **`Role`**, **`Email`**, **`Phone`**, **`TenantID`**. Pro SaaS: set **`TenantID`** for correct catalog tenant on create. |
 | `UpdateUser(ctx, userID, UpdateUserParams)` | Update **`email`**, **`phone`**, **`role`**, and/or **`TenantID`** (non-nil **`*string` pointers only**). |

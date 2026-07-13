@@ -5,6 +5,20 @@ All notable changes to the Go Apito SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.6.4] - 2026-07-13
+
+### Changed
+
+- **`DeleteTenant`** — soft delete only (`status=deleted`); content and mirror remain until Console hard delete.
+- **`SearchTenants`** — optional `status` argument (`active`, `deleted`, `all`).
+
+## [2.6.3] - 2026-07-13
+
+### Added
+
+- **`SearchTenants(ctx, projectID, limit, offset, q, status)`** — paginated SaaS catalog search with `count` and optional free-text filter (`name`, `id`, `domain`, `data`). Optional `status`: `active` (default), `deleted`, or `all`. Parity with engine `searchTenants`, `js-admin-sdk`, and `flutter_admin_sdk`.
+- **`SearchTenantsResponse`** type; **`TenantCatalogSearchRow`** now includes optional `icon` and `created_at` from search payloads.
+
 ## [2.6.2] - 2026-07-11
 
 ### Added

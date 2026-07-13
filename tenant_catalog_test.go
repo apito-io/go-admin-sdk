@@ -29,6 +29,29 @@ func TestDeleteTenantRequiresID(t *testing.T) {
 	}
 }
 
+func TestMapToTenantCatalogSearchRow(t *testing.T) {
+	row := mapToTenantCatalogSearchRow(map[string]interface{}{
+		"id":         "01ABC",
+		"name":       "Acme",
+		"status":     "active",
+		"domain":     "acme.example.com",
+		"data":       `{"owner_uid":"u1"}`,
+		"icon":       "https://cdn/logo.png",
+		"created_at": "2026-07-12T00:00:00Z",
+	})
+	if row == nil || row.ID != "01ABC" || row.Icon == "" || row.CreatedAt == "" {
+		t.Fatalf("unexpected row: %+v", row)
+	}
+}
+
+func TestSearchTenantsRequiresProjectID(t *testing.T) {
+	c := NewClient(Config{BaseURL: "http://localhost/system/graphql", APIKey: "test"})
+	_, err := c.SearchTenants(t.Context(), "", 10, 0, "", "")
+	if err == nil || !strings.Contains(err.Error(), "projectID is required") {
+		t.Fatalf("expected projectID required error, got %v", err)
+	}
+}
+
 func TestMapToTenantCatalogListItem(t *testing.T) {
 	row := mapToTenantCatalogListItem(map[string]interface{}{
 		"id":     "01ABC",

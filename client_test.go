@@ -529,6 +529,12 @@ func TestUserProIntegration(t *testing.T) {
 		t.Logf("✅ SearchTenantsByDomain: match=%v", has)
 	}
 
+	if search, err := client.SearchTenants(ctx, projectID, 10, 0, "", ""); err != nil {
+		t.Logf("SearchTenants failed: %v", err)
+	} else {
+		t.Logf("✅ SearchTenants: count=%d rows=%d", search.Count, len(search.Tenants))
+	}
+
 	email := strings.TrimSpace(os.Getenv("APITO_TENANT_EMAIL"))
 	phone := strings.TrimSpace(os.Getenv("APITO_TENANT_PHONE"))
 	pw := os.Getenv("APITO_TENANT_PASSWORD")
