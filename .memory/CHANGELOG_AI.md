@@ -4,6 +4,11 @@ Not git history — the *reasoning* behind changes. Newest on top.
 Format per entry: date, **Changed**, **Why**, **Affected**.
 
 ---
+## 2026-07-14
+- **Changed:** v2.6.5 — `GetTenant(ctx, projectID, tenantID, status)` via SearchTenants + exact id match; CONTRACT/README/CHANGELOG + tests.
+- **Why:** Close getTenant parity with JS/Flutter for single-tenant catalog fetch without consumer-side search loops.
+- **Affected:** `client.go`, `tenant_catalog_test.go`, `CHANGELOG.md`, `CONTRACT.md`, `README.md`, `version.go`
+
 ## 2026-07-13
 - **Changed:** `SearchTenants(ctx, projectID, limit, offset, q)` + `SearchTenantsResponse`; `TenantCatalogSearchRow` gains `icon`, `created_at`. `/sync-sdk-all apply go` after tenant user-parity.
 - **Why:** Only catalog search gap vs JS/Flutter/engine; Kisti and Console use `searchTenants` for catalog counts.
@@ -14,4 +19,4 @@ Format per entry: date, **Changed**, **Why**, **Affected**.
 - **Why:** Cross-LLM durable knowledge + working memory.
 - **Affected:** this repo only.
 
-Last Updated: 2026-07-06
+Last Updated: 2026-07-14

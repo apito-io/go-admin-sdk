@@ -1,10 +1,11 @@
 # go-admin-sdk — Current
 
 ## Working on
-- _TODO (from in-progress plans)_
+- Idle after getTenant ship (v2.6.5)
 
 ## Next
-- _TODO (from pending plans)_
+- Tag/publish 2.6.5 if not yet released; consumer bumps as needed
+- Optional sync-sdk blast-radius confirmation for GetTenant call sites
 
 ## Last Updated
-2026-07-06
+2026-07-14
