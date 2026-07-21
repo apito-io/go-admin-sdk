@@ -52,6 +52,18 @@ func TestSearchTenantsRequiresProjectID(t *testing.T) {
 	}
 }
 
+func TestGetTenantRequiresIDs(t *testing.T) {
+	c := NewClient(Config{BaseURL: "http://localhost/system/graphql", APIKey: "test"})
+	_, err := c.GetTenant(t.Context(), "", "tid", "")
+	if err == nil || !strings.Contains(err.Error(), "projectID is required") {
+		t.Fatalf("expected projectID required error, got %v", err)
+	}
+	_, err = c.GetTenant(t.Context(), "proj", "", "")
+	if err == nil || !strings.Contains(err.Error(), "tenantID is required") {
+		t.Fatalf("expected tenantID required error, got %v", err)
+	}
+}
+
 func TestMapToTenantCatalogListItem(t *testing.T) {
 	row := mapToTenantCatalogListItem(map[string]interface{}{
 		"id":     "01ABC",

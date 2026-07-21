@@ -5,6 +5,24 @@ All notable changes to the Go Apito SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [2.6.6] - 2026-07-21
+
+### Added
+
+- **Project-scoped access-token requests** — `Config.ProjectID` supplies `X-Apito-Project-Id` for GraphQL and REST requests. Methods with an explicit `projectID` override the configured value with the same request scope while retaining context-based tenant headers.
+
+### Changed
+
+- **Unified `apt_` access tokens (hard cut)** — `applyAuthCredential` sends `apt_` tokens as `Authorization: Bearer` + `X-Use-Cookies: false` only; dropped the compatibility `X-Apito-Key` dual header. `Config.AccessToken` is the preferred field (alias: `APIKey` set to an `apt_...` value). Legacy `cli-`/`sdk-`/`mcp-` prefixed keys now make `executeGraphQL` return a `TOKEN_FORMAT_RETIRED` error before hitting the network. Plain project API keys (no recognized prefix) are unaffected and still use `X-Apito-Key`.
+
+## [2.6.5] - 2026-07-14
+
+### Added
+
+- **`GetTenant(ctx, projectID, tenantID, status)`** — load one SaaS catalog tenant by exact id via `SearchTenants` (default `status`: `active`). Returns `(nil, nil)` when no exact id match. Parity with `js-admin-sdk` `getTenant` and `flutter_admin_sdk`.
+
 ## [2.6.4] - 2026-07-13
 
 ### Changed

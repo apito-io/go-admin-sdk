@@ -79,11 +79,19 @@ func main() {
 
 ```go
 client := goapitosdk.NewClient(goapitosdk.Config{
-    BaseURL: "https://api.apito.io/graphql",  // Your Apito GraphQL endpoint
-    APIKey:  "your-api-key-here",             // X-APITO-KEY header value
-    Timeout: 30 * time.Second,                // HTTP client timeout
+    BaseURL:     "https://api.apito.io/graphql",  // Your Apito GraphQL endpoint
+    AccessToken: "apt_your-access-token",         // Unified access token → Authorization: Bearer
+    // APIKey:   "your-project-api-key",          // Legacy project key → X-Apito-Key (non-apt_ keys only)
+    ProjectID:   "your-project-id",                // Optional default → X-Apito-Project-Id
+    Timeout:     30 * time.Second,                // HTTP client timeout
 })
 ```
+
+`AccessToken` (or `APIKey` set to an `apt_...` value) is the unified system access token, generated in Console → Access Token, and is always sent as `Authorization: Bearer` (no `X-Apito-Key`, no dual-header). Legacy `cli-`/`sdk-`/`mcp-` prefixed keys are retired — GraphQL calls fail fast with `TOKEN_FORMAT_RETIRED` instead of hitting the network. Plain project API keys (no recognized prefix) continue to use `X-Apito-Key`.
+
+`ProjectID` is the default project scope for system calls. Methods that accept
+`projectID` send that exact value as `X-Apito-Project-Id`; tenant scope remains
+available through the existing `tenant_id` context value.
 
 ### Advanced Configuration
 
@@ -141,6 +149,7 @@ Requires system GraphQL (`/system/graphql`) with an admin API key. Operations ar
 | `GoogleOAuthState(ctx, projectID)` | Returns signed OAuth **`State`** string for building the Google authorize URL. |
 | `SearchUsers(ctx, projectID, limit, offset, tenantID, q)` | List project end-users. Pro SaaS: pass **`tenantID`** to filter by catalog tenant (empty string omits). Optional **`q`** filters email, username, phone, or id (case-insensitive contains). |
 | `SearchTenants(ctx, projectID, limit, offset, q, status)` | Paginated SaaS catalog search (`count` + rows). Optional **`q`** filters name, id, domain, and data. Optional **`status`**: `active` (default), `deleted`, or `all`. Prefer over `getTenants` on large catalogs. |
+| `GetTenant(ctx, projectID, tenantID, status)` | Load one catalog tenant by exact id (wraps `SearchTenants`; nil when no exact match). Default **`status`**: `active`. |
 | `GetTenants(ctx)` | List all catalog tenants (unbounded). |
 | `SearchTenantsByDomain(ctx, projectID, domain)` | Resolve the single SaaS catalog tenant for an exact domain match in the project (`tenant` null if none). |
 | `CreateUser(ctx, projectID, CreateUserParams)` | Create a local-password user; **`Password`**, optional **`Role`**, **`Email`**, **`Phone`**, **`TenantID`**. Pro SaaS: set **`TenantID`** for correct catalog tenant on create. |

@@ -19,6 +19,7 @@ type Client struct {
 	baseURL     string
 	restBaseURL string
 	apiKey      string
+	projectID   string
 	httpClient  *http.Client
 }
 
@@ -26,7 +27,9 @@ type Client struct {
 type Config struct {
 	BaseURL     string        // Base URL of the Apito GraphQL endpoint (e.g. http://host:5050/system/graphql)
 	RestBaseURL string        // Optional REST base (e.g. http://host:5050/system); derived from BaseURL when empty
-	APIKey      string        // API key for authentication (X-APITO-KEY header)
+	APIKey      string        // Project API key (ak_…) or legacy field; prefer AccessToken for apt_ automation
+	AccessToken string        // Unified system access token (apt_…) → Authorization: Bearer
+	ProjectID   string        // Optional default project scope → X-Apito-Project-Id
 	Timeout     time.Duration // HTTP client timeout (default: 30 seconds)
 	HTTPClient  *http.Client  // Custom HTTP client (optional)
 }
@@ -49,12 +52,50 @@ func NewClient(config Config) *Client {
 		restBase = deriveRestBaseURL(config.BaseURL)
 	}
 
+	key := strings.TrimSpace(config.AccessToken)
+	if key == "" {
+		key = strings.TrimSpace(config.APIKey)
+	}
+
 	return &Client{
 		baseURL:     config.BaseURL,
 		restBaseURL: restBase,
-		apiKey:      config.APIKey,
+		apiKey:      key,
+		projectID:   strings.TrimSpace(config.ProjectID),
 		httpClient:  httpClient,
 	}
+}
+
+// errTokenFormatRetired mirrors the engine's TOKEN_FORMAT_RETIRED rejection so
+// callers get the same guidance whether the client or the server catches the
+// legacy cli-/sdk-/mcp- token format.
+var errTokenFormatRetired = fmt.Errorf(
+	"TOKEN_FORMAT_RETIRED: cli-/sdk-/mcp- prefixed keys are no longer accepted. " +
+		"Generate a unified apt_ access token in Console → Access Token and set it as Config.AccessToken",
+)
+
+// isRetiredTokenPrefix reports legacy cli-/sdk-/mcp- token formats.
+func isRetiredTokenPrefix(key string) bool {
+	return strings.HasPrefix(key, "cli-") || strings.HasPrefix(key, "sdk-") || strings.HasPrefix(key, "mcp-")
+}
+
+// applyAuthCredential sets the request's auth header from key. Unified apt_
+// access tokens are sent as Authorization: Bearer only (X-Use-Cookies: false
+// tells the engine this is a headless API call, no browser session cookies) —
+// hard cut, no compatibility X-Apito-Key fallback. Legacy project keys
+// without a recognized prefix still use X-Apito-Key. Retired cli-/sdk-/mcp-
+// prefixed keys are rejected by the caller before this is reached.
+func applyAuthCredential(req *http.Request, key string) {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return
+	}
+	if strings.HasPrefix(key, "apt_") {
+		req.Header.Set("Authorization", "Bearer "+key)
+		req.Header.Set("X-Use-Cookies", "false")
+		return
+	}
+	req.Header.Set("X-Apito-Key", key)
 }
 
 func deriveRestBaseURL(graphqlURL string) string {
@@ -70,12 +111,25 @@ func deriveRestBaseURL(graphqlURL string) string {
 	return u
 }
 
-// executeGraphQL executes a GraphQL query or mutation
+const headerApitoProjectID = "X-Apito-Project-Id"
+
+// executeGraphQL executes a GraphQL query or mutation using the configured
+// default project scope, when present.
 func (c *Client) executeGraphQL(ctx context.Context, query string, variables map[string]interface{}) (*types.GraphQLResponse, error) {
+	return c.executeGraphQLScoped(ctx, query, variables, "")
+}
+
+// executeGraphQLScoped sends the canonical project header. A non-empty
+// projectID overrides Config.ProjectID for this request.
+func (c *Client) executeGraphQLScoped(ctx context.Context, query string, variables map[string]interface{}, projectID string) (*types.GraphQLResponse, error) {
+
+	if isRetiredTokenPrefix(c.apiKey) {
+		return nil, errTokenFormatRetired
+	}
 
 	var tenantID string
-	if ctx.Value("tenant_id") != nil {
-		tenantID = ctx.Value("tenant_id").(string)
+	if ctx != nil && ctx.Value("tenant_id") != nil {
+		tenantID, _ = ctx.Value("tenant_id").(string)
 	}
 
 	payload := map[string]interface{}{
@@ -97,10 +151,13 @@ func (c *Client) executeGraphQL(ctx context.Context, query string, variables map
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	if strings.HasPrefix(c.apiKey, "cli-") || strings.HasPrefix(c.apiKey, "sdk-") {
-		req.Header.Set("X-Apito-Sync-Key", c.apiKey)
-	} else {
-		req.Header.Set("X-Apito-Key", c.apiKey)
+	applyAuthCredential(req, c.apiKey)
+	effectiveProjectID := strings.TrimSpace(projectID)
+	if effectiveProjectID == "" {
+		effectiveProjectID = c.projectID
+	}
+	if effectiveProjectID != "" {
+		req.Header.Set(headerApitoProjectID, effectiveProjectID)
 	}
 	if tenantID != "" {
 		req.Header.Set("X-Apito-Tenant-ID", tenantID)
@@ -135,7 +192,8 @@ func (c *Client) executeGraphQL(ctx context.Context, query string, variables map
 
 // GenerateTenantToken generates a new tenant-scoped API key for the given tenant_id.
 //
-// Authentication uses the client's Config.APIKey (X-Apito-Key).
+// Authentication uses the client's Config.AccessToken/APIKey (unified apt_
+// tokens send Authorization: Bearer; legacy project keys send X-Apito-Key).
 //
 // duration is the token expiry calendar day (YYYY-MM-DD), matching the engine mutation.
 // If duration is empty, a default of one calendar year ahead in UTC is used.
@@ -329,7 +387,7 @@ func (c *Client) LoginUser(ctx context.Context, projectID string, params LoginUs
 		}
 	}
 
-	response, err := c.executeGraphQL(ctx, query, variables)
+	response, err := c.executeGraphQLScoped(ctx, query, variables, projectID)
 	if err != nil {
 		return nil, fmt.Errorf("loginUser: %w", err)
 	}
@@ -359,7 +417,7 @@ func (c *Client) GoogleOAuthState(ctx context.Context, projectID string) (*Googl
 		}
 	`
 	variables := map[string]interface{}{"project_id": projectID}
-	response, err := c.executeGraphQL(ctx, query, variables)
+	response, err := c.executeGraphQLScoped(ctx, query, variables, projectID)
 	if err != nil {
 		return nil, fmt.Errorf("googleOAuthState: %w", err)
 	}
@@ -410,7 +468,7 @@ func (c *Client) SearchUsers(ctx context.Context, projectID string, limit, offse
 	if needle := strings.TrimSpace(q); needle != "" {
 		variables["q"] = needle
 	}
-	response, err := c.executeGraphQL(ctx, query, variables)
+	response, err := c.executeGraphQLScoped(ctx, query, variables, projectID)
 	if err != nil {
 		return nil, fmt.Errorf("searchUsers: %w", err)
 	}
@@ -459,7 +517,7 @@ func (c *Client) SearchTenantsByDomain(ctx context.Context, projectID, domain st
 		"project_id": projectID,
 		"domain":     domain,
 	}
-	response, err := c.executeGraphQL(ctx, query, variables)
+	response, err := c.executeGraphQLScoped(ctx, query, variables, projectID)
 	if err != nil {
 		return nil, fmt.Errorf("searchTenantsByDomain: %w", err)
 	}
@@ -520,7 +578,7 @@ func (c *Client) SearchTenants(ctx context.Context, projectID string, limit, off
 	if statusFilter := strings.TrimSpace(status); statusFilter != "" {
 		variables["status"] = statusFilter
 	}
-	response, err := c.executeGraphQL(ctx, query, variables)
+	response, err := c.executeGraphQLScoped(ctx, query, variables, pid)
 	if err != nil {
 		return nil, fmt.Errorf("searchTenants: %w", err)
 	}
@@ -548,6 +606,37 @@ func (c *Client) SearchTenants(ctx context.Context, projectID string, limit, off
 		}
 	}
 	return &SearchTenantsResponse{Tenants: tenants, Count: count}, nil
+}
+
+// GetTenant loads one SaaS catalog tenant by exact id (system GraphQL only).
+// Uses SearchTenants with q = tenantID; returns nil when no exact id match.
+// status defaults to "active" when empty.
+func (c *Client) GetTenant(ctx context.Context, projectID, tenantID, status string) (*TenantCatalogSearchRow, error) {
+	pid := strings.TrimSpace(projectID)
+	tid := strings.TrimSpace(tenantID)
+	if pid == "" {
+		return nil, fmt.Errorf("getTenant: projectID is required")
+	}
+	if tid == "" {
+		return nil, fmt.Errorf("getTenant: tenantID is required")
+	}
+	statusFilter := strings.TrimSpace(status)
+	if statusFilter == "" {
+		statusFilter = "active"
+	}
+	res, err := c.SearchTenants(ctx, pid, 5, 0, tid, statusFilter)
+	if err != nil {
+		return nil, fmt.Errorf("getTenant: %w", err)
+	}
+	if res == nil {
+		return nil, nil
+	}
+	for _, row := range res.Tenants {
+		if row != nil && strings.TrimSpace(row.ID) == tid {
+			return row, nil
+		}
+	}
+	return nil, nil
 }
 
 func mapToTenantCatalogListItem(m map[string]interface{}) *TenantCatalogListItem {
@@ -759,7 +848,7 @@ func (c *Client) CreateUser(ctx context.Context, projectID string, params Create
 	if tid := strings.TrimSpace(params.TenantID); tid != "" {
 		variables["tenant_id"] = tid
 	}
-	response, err := c.executeGraphQL(ctx, query, variables)
+	response, err := c.executeGraphQLScoped(ctx, query, variables, projectID)
 	if err != nil {
 		return nil, fmt.Errorf("createUser: %w", err)
 	}
@@ -1013,7 +1102,7 @@ func (c *Client) GetProjectDetails(ctx context.Context, projectID string) (*prot
 		variables["_id"] = projectID
 	}
 
-	response, err := c.executeGraphQL(ctx, query, variables)
+	response, err := c.executeGraphQLScoped(ctx, query, variables, projectID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get project details: %w", err)
 	}

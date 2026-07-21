@@ -22,10 +22,9 @@ type restRequest struct {
 
 func (c *Client) setAuthHeaders(req *http.Request, ctx context.Context) {
 	req.Header.Set("Content-Type", "application/json")
-	if strings.HasPrefix(c.apiKey, "cli-") || strings.HasPrefix(c.apiKey, "sdk-") {
-		req.Header.Set("X-Apito-Sync-Key", c.apiKey)
-	} else {
-		req.Header.Set("X-Apito-Key", c.apiKey)
+	applyAuthCredential(req, c.apiKey)
+	if c.projectID != "" {
+		req.Header.Set(headerApitoProjectID, c.projectID)
 	}
 	if ctx != nil && ctx.Value("tenant_id") != nil {
 		if tenantID, ok := ctx.Value("tenant_id").(string); ok && strings.TrimSpace(tenantID) != "" {
@@ -37,6 +36,9 @@ func (c *Client) setAuthHeaders(req *http.Request, ctx context.Context) {
 func (c *Client) executeREST(ctx context.Context, rr restRequest) ([]byte, int, error) {
 	if strings.TrimSpace(c.restBaseURL) == "" {
 		return nil, 0, fmt.Errorf("rest base URL is not configured")
+	}
+	if isRetiredTokenPrefix(c.apiKey) {
+		return nil, 0, errTokenFormatRetired
 	}
 
 	u, err := url.Parse(strings.TrimSuffix(c.restBaseURL, "/") + rr.path)
@@ -76,10 +78,9 @@ func (c *Client) executeREST(ctx context.Context, rr restRequest) ([]byte, int, 
 	}
 	if rr.multipartFn != nil {
 		req.Header.Set("Content-Type", contentType)
-		if strings.HasPrefix(c.apiKey, "cli-") || strings.HasPrefix(c.apiKey, "sdk-") {
-			req.Header.Set("X-Apito-Sync-Key", c.apiKey)
-		} else {
-			req.Header.Set("X-Apito-Key", c.apiKey)
+		applyAuthCredential(req, c.apiKey)
+		if c.projectID != "" {
+			req.Header.Set(headerApitoProjectID, c.projectID)
 		}
 		if ctx != nil && ctx.Value("tenant_id") != nil {
 			if tenantID, ok := ctx.Value("tenant_id").(string); ok && strings.TrimSpace(tenantID) != "" {
