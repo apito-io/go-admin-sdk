@@ -15,8 +15,8 @@ Go implementation of [admin-sdk-contract](../../../../.knowledge/features/admin-
 
 ## Flows
 
-- **Create**: `NewClient(Config{ BaseURL, APIKey, RestBaseURL?, Timeout? })`.
-- **GraphQL**: `executeGraphQL(ctx, query, variables)` — sets `X-Apito-Key` / sync key headers.
+- **Create**: `NewClient(Config{ BaseURL, APIKey, AccessToken, RestBaseURL?, Timeout? })`.
+- **GraphQL**: `executeGraphQL(ctx, query, variables)` — rejects retired `cli-`/`sdk-`/`mcp-` prefixes with `TOKEN_FORMAT_RETIRED`, then sets `Authorization: Bearer` (unified `apt_` access tokens) or `X-Apito-Key` (legacy project keys) via `applyAuthCredential`. `Config.ProjectID` supplies `X-Apito-Project-Id`; methods accepting `projectID` override it for that request.
 - **Tenant**: pass `tenant_id` via `context.Context` value → `X-Apito-Tenant-ID` header.
 - **Model ops**: generated genqlient methods or hand-built queries via document builder.
 
@@ -35,7 +35,7 @@ Go implementation of [admin-sdk-contract](../../../../.knowledge/features/admin-
 ## Invariants
 
 - `RestBaseURL` derived from `BaseURL` when empty — same rules as JS SDK (`/system/graphql` → `/secured`).
-- `cli-*` / `sdk-*` keys use `X-Apito-Sync-Key`; others use `X-Apito-Key`.
+- Unified `apt_` access tokens (`AccessToken`, or `APIKey` set to an `apt_...` value) send `Authorization: Bearer` + `X-Use-Cookies: false` only — no dual `X-Apito-Key` header. Legacy `cli-`/`sdk-`/`mcp-` prefixed keys are retired; `executeGraphQL` returns `TOKEN_FORMAT_RETIRED` before hitting the network. Other keys (e.g. project `ak_...` keys) use `X-Apito-Key`.
 - Always use `context.Context` for cancellation and tenant injection.
 
 ## Common bugs
@@ -49,6 +49,7 @@ Go implementation of [admin-sdk-contract](../../../../.knowledge/features/admin-
 - `client_test.go`
 - `client_rest_base_test.go`
 - `client_user_tenant_test.go`
+- `client_auth_headers_test.go`
 
 ## Related
 

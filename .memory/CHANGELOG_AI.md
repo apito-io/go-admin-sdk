@@ -4,6 +4,12 @@ Not git history — the *reasoning* behind changes. Newest on top.
 Format per entry: date, **Changed**, **Why**, **Affected**.
 
 ---
+## 2026-07-21
+- **Changed:** Added `Config.ProjectID`, canonical scoped GraphQL/REST project
+  headers, and explicit method project overrides with tenant context preserved.
+- **Why:** `apt_` authorization must receive project scope in HTTP headers.
+- **Affected:** `client.go`, `rest.go`, header tests, docs/knowledge/changelog.
+
 ## 2026-07-14
 - **Changed:** v2.6.5 — `GetTenant(ctx, projectID, tenantID, status)` via SearchTenants + exact id match; CONTRACT/README/CHANGELOG + tests.
 - **Why:** Close getTenant parity with JS/Flutter for single-tenant catalog fetch without consumer-side search loops.
@@ -19,4 +25,4 @@ Format per entry: date, **Changed**, **Why**, **Affected**.
 - **Why:** Cross-LLM durable knowledge + working memory.
 - **Affected:** this repo only.
 
-Last Updated: 2026-07-14
+Last Updated: 2026-07-21
