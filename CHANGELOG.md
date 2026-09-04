@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **ApitoProjectPayment REST** — `VerifyProjectPayment`, `GetTenantSubscription`,
+  `CancelTenantSubscription` + `ProjectTenantSubscription` type. Paths under
+  `/system/v1/project-payment/...` on the engine origin (not `/secured` files).
+
+### Changed
+
+- **`UpdateTenant`** — already omits `plan_tier` (parity with engine: plan entitlement is ledger-driven). Documented for 2026-08-11 engine Breaking note; no API change in this SDK.
+
+### Docs
+
+- Engine additive: `searchTenants(status: idle)`, `last_login_at` on catalog rows — optional follow-up selection when consumers need Idle UI.
+
 ## [2.7.0] - 2026-08-10
 
 ### Added
