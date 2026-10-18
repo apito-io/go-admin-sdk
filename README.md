@@ -2,9 +2,9 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/apito-io/go-admin-sdk.svg)](https://pkg.go.dev/github.com/apito-io/go-admin-sdk)
 [![Go Report Card](https://goreportcard.com/badge/github.com/apito-io/go-admin-sdk)](https://goreportcard.com/report/github.com/apito-io/go-admin-sdk)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 
-A comprehensive Go SDK for communicating with Apito GraphQL API endpoints. This SDK implements the `InjectedDBOperationInterface` and provides both type-safe and flexible interfaces for interacting with Apito's backend services.
+REST and GraphQL client for Go services that talk to an Apito backend.
 
 ## 🚀 Features
 
@@ -15,7 +15,7 @@ A comprehensive Go SDK for communicating with Apito GraphQL API endpoints. This 
 - ✅ **Context-Aware**: Full context support with timeout and cancellation
 - ✅ **Comprehensive Error Handling**: Detailed error responses and GraphQL error support
 - ✅ **Plugin-Ready**: Perfect for HashiCorp Go plugins and microservices
-- ✅ **Production Ready**: Battle-tested in production environments
+- **Error handling**: Detailed error responses and GraphQL error support
 
 ## 📦 Installation
 
@@ -753,7 +753,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🔗 Links
 
-- [Apito Documentation](https://docs.apito.io)
+- [Apito Documentation](https://apito.io/docs)
 - [API Reference](https://pkg.go.dev/github.com/apito-io/go-admin-sdk)
 - [GitHub Repository](https://github.com/apito-io/go-admin-sdk)
 - [Issues](https://github.com/apito-io/go-admin-sdk/issues)
@@ -761,6 +761,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🆘 Support
 
 - 📧 Email: support@apito.io
-- 💬 Discord: [Join our community](https://discord.gg/apito)
-- 📖 Documentation: [docs.apito.io](https://docs.apito.io)
+- 💬 Discord: [Join our community](https://discord.gg/Xb7p2ddC6E)
+- Documentation: [apito.io/docs](https://apito.io/docs)
 - 🐛 Bug Reports: [GitHub Issues](https://github.com/apito-io/go-admin-sdk/issues)

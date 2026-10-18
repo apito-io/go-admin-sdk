@@ -4,6 +4,12 @@ Not git history — the *reasoning* behind changes. Newest on top.
 Format per entry: date, **Changed**, **Why**, **Affected**.
 
 ---
+## 2026-10-18 — pkg.go.dev comments
+
+- **Changed:** Added `doc.go`, `example_test.go`, and a README opening for Go services. License stays Apache-2.0.
+- **Why:** pkg.go.dev has nothing useful to index until the next tag.
+- **Affected:** `doc.go`, `example_test.go`, `README.md`. Example tests passed. No tag. Leave `.memory` out of the public diff.
+
 ## 2026-10-16 — Canonical Facebook token login query
 
 - **Changed:** `LoginUser` uses one canonical GraphQL document with optional `access_token`; added a request-contract test. Removed the temporary per-auth query fork.

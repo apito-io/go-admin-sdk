@@ -1,4 +1,7 @@
-# Handoff — go-admin-sdk 2026-10-16
+# Handoff — go-admin-sdk 2026-10-18
+
+- **Done:** Package comment, example tests, and README. Remote stays `go-internal-sdk`. Do not rename the GitHub repo in this pass. Do not tag. Leave `.memory` out of the public diff.
+- **Verified:** `go test -count=1 -run Example .` passed.
 
 - **Done:** `LoginUser` now keeps one canonical query with optional `access_token`; the Facebook method supplies the variable and existing methods stay compatible for published clients. Added a request-contract test.
 - **Verified:** `go test ./... -run TestLoginUserFacebookAccessTokenUsesCanonicalOptionalArgument -count=1` passed.
