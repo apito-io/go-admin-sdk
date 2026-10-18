@@ -15,7 +15,7 @@ Go bindings for [auth-tenant-admin](../../../../.knowledge/features/auth-tenant-
 
 ## Flows
 
-- **Login**: `LoginUser(ctx, LoginUserParams)` — password, Google OAuth, or `google_id_token`.
+- **Login**: `LoginUser(ctx, LoginUserParams)` — password, OAuth code, native `google_id_token`, or native `facebook_access_token` (the optional `AccessToken` is sent as `access_token`).
 - **OAuth state**: `GoogleOAuthState` before redirect flow.
 - **Tenants**: `GetTenants`, `CreateTenant`, `UpdateTenant`, `DeleteTenant`, `GenerateTenantToken`.
 - **Users**: `SearchUsers`, `CreateUser`, `UpdateUser`, `DeleteUser`, `ResetUserPassword` with optional `TenantID`.

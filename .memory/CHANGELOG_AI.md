@@ -4,6 +4,25 @@ Not git history — the *reasoning* behind changes. Newest on top.
 Format per entry: date, **Changed**, **Why**, **Affected**.
 
 ---
+## 2026-10-16 — Canonical Facebook token login query
+
+- **Changed:** `LoginUser` uses one canonical GraphQL document with optional `access_token`; added a request-contract test. Removed the temporary per-auth query fork.
+- **Why:** The engine schema evolves additively for published mobile clients. Old binaries omit the argument; SDK/app releases using it follow the engine release.
+- **Affected:** `client.go`, `models.go`, `client_user_tenant_test.go`. No version bump. Ask before commit, tag, or `./command.sh save`.
+
+## 2026-10-15 — Facebook access token on LoginUser
+
+- **Changed:** `LoginUserParams.AccessToken` and the `facebook_access_token` branch.
+- **Why:** Native Facebook login has a user token, not a code and state.
+- **Affected:** `client.go`, `models.go`. Ask before commit or `./command.sh save`.
+
+## 2026-10-12 — consumer apito-gen flags
+
+- **Changed:** `-schema`, `-out`, `-models`, `-module`, and `-prune`. Empty args keep the SDK repo layout.
+- **Why:** `apito gen` has to write into an app module without walking up to the SDK `go.mod` or leaving stale operations.
+- **Affected:** `cmd/apito-gen/main.go`. Test passed. No version bump. Ask before commit.
+
+---
 ## 2026-08-12 — ApitoProjectPayment REST
 
 - **Changed:** `VerifyProjectPayment` / `GetTenantSubscription` /
