@@ -98,6 +98,13 @@ func applyAuthCredential(req *http.Request, key string) {
 	req.Header.Set("X-Apito-Key", key)
 }
 
+func (c *Client) requireOperatorCredential(operation string) error {
+	if c != nil && strings.HasPrefix(strings.TrimSpace(c.apiKey), "apt_") {
+		return nil
+	}
+	return fmt.Errorf("OPERATOR_CREDENTIAL_REQUIRED: %s requires an apt_ operator token", operation)
+}
+
 func deriveRestBaseURL(graphqlURL string) string {
 	u := strings.TrimSuffix(strings.TrimSpace(graphqlURL), "/")
 	if strings.HasSuffix(u, "/graphql") {
@@ -204,6 +211,9 @@ func (c *Client) executeGraphQLScoped(ctx context.Context, query string, variabl
 func (c *Client) GenerateTenantToken(ctx context.Context, tenantID, duration, role string) (string, error) {
 	if strings.TrimSpace(tenantID) == "" {
 		return "", fmt.Errorf("tenantID is required")
+	}
+	if err := c.requireOperatorCredential("generateTenantToken"); err != nil {
+		return "", err
 	}
 	if strings.TrimSpace(duration) == "" {
 		duration = time.Now().UTC().AddDate(1, 0, 0).Format("2006-01-02")
@@ -327,7 +337,8 @@ func mapToTenantCatalogSearchRow(m map[string]interface{}) *TenantCatalogSearchR
 	return r
 }
 
-// LoginUser runs loginUser (password or Google OAuth code / id_token flow).
+// LoginUser runs loginUser (password, OAuth code, native Google id_token, or
+// native Facebook access-token flow).
 // Google paths may auto-link a verified email to an existing user; handle engine errors
 // "google email not verified", "google account already linked to another user", "multiple users matched this email".
 // On Cloudflare Workers v1, Google paths are unavailable; password login is supported.
@@ -337,9 +348,12 @@ func (c *Client) LoginUser(ctx context.Context, projectID string, params LoginUs
 		authMethod = "general"
 	}
 
+	// access_token is optional. Published clients keep sending this operation
+	// without it, while the new facebook_access_token method supplies it after
+	// the additive engine schema change is deployed.
 	query := `
-		query LoginUser($project_id: String!, $tenant_id: String, $password: String, $auth_method: String, $email: String, $phone: String, $code: String, $state: String, $id_token: String) {
-			loginUser(project_id: $project_id, tenant_id: $tenant_id, password: $password, auth_method: $auth_method, email: $email, phone: $phone, code: $code, state: $state, id_token: $id_token) {
+		query LoginUser($project_id: String!, $tenant_id: String, $password: String, $auth_method: String, $email: String, $phone: String, $code: String, $state: String, $id_token: String, $access_token: String) {
+			loginUser(project_id: $project_id, tenant_id: $tenant_id, password: $password, auth_method: $auth_method, email: $email, phone: $phone, code: $code, state: $state, id_token: $id_token, access_token: $access_token) {
 				token
 				user {
 					id
@@ -381,6 +395,12 @@ func (c *Client) LoginUser(ctx context.Context, projectID string, params LoginUs
 		}
 		variables["auth_method"] = "google_id_token"
 		variables["id_token"] = strings.TrimSpace(params.IDToken)
+	} else if authMethod == "facebook_access_token" {
+		if strings.TrimSpace(params.AccessToken) == "" {
+			return nil, fmt.Errorf("loginUser: access_token is required for facebook_access_token auth_method")
+		}
+		variables["auth_method"] = "facebook_access_token"
+		variables["access_token"] = strings.TrimSpace(params.AccessToken)
 	} else {
 		if strings.TrimSpace(params.Password) == "" {
 			return nil, fmt.Errorf("loginUser: password is required")
@@ -478,6 +498,9 @@ func (c *Client) OAuthState(ctx context.Context, projectID, provider string) (*G
 // SearchUsers lists project end-users. tenantID is optional (pro SaaS catalog tenant filter).
 // q is optional free-text filter on email, username, phone, or id (case-insensitive contains).
 func (c *Client) SearchUsers(ctx context.Context, projectID string, limit, offset int, tenantID, q string) (*UsersResponse, error) {
+	if err := c.requireOperatorCredential("searchUsers"); err != nil {
+		return nil, err
+	}
 	query := `
 		query SearchUsers($project_id: String!, $limit: Int, $offset: Int, $tenant_id: String, $q: String) {
 			searchUsers(project_id: $project_id, limit: $limit, offset: $offset, tenant_id: $tenant_id, q: $q) {
@@ -585,6 +608,9 @@ func (c *Client) SearchTenants(ctx context.Context, projectID string, limit, off
 	pid := strings.TrimSpace(projectID)
 	if pid == "" {
 		return nil, fmt.Errorf("searchTenants: projectID is required")
+	}
+	if err := c.requireOperatorCredential("searchTenants"); err != nil {
+		return nil, err
 	}
 	query := `
 		query SearchTenants($project_id: String!, $limit: Int, $offset: Int, $q: String, $status: String) {
@@ -704,6 +730,9 @@ func mapToTenantCatalogListItem(m map[string]interface{}) *TenantCatalogListItem
 
 // GetTenants lists SaaS catalog tenants for the authenticated project (system GraphQL only).
 func (c *Client) GetTenants(ctx context.Context) (*GetTenantsResponse, error) {
+	if err := c.requireOperatorCredential("getTenants"); err != nil {
+		return nil, err
+	}
 	query := `
 		query GetTenants {
 			getTenants {
@@ -747,6 +776,7 @@ func (c *Client) MyTenant(ctx context.Context) (*MyTenant, error) {
 		query MyTenant {
 			myTenant {
 				id
+				owner_uid
 				name
 				domain
 				status
@@ -769,6 +799,9 @@ func (c *Client) MyTenant(ctx context.Context) (*MyTenant, error) {
 	out := &MyTenant{}
 	if v, ok := raw["id"].(string); ok {
 		out.ID = v
+	}
+	if v, ok := raw["owner_uid"].(string); ok {
+		out.OwnerUID = v
 	}
 	if strings.TrimSpace(out.ID) == "" {
 		return nil, fmt.Errorf("invalid myTenant response: missing id")
@@ -826,6 +859,9 @@ func (c *Client) CreateTenant(ctx context.Context, params CreateTenantParams) (*
 	if name == "" {
 		return nil, fmt.Errorf("createTenant: name is required")
 	}
+	if err := c.requireOperatorCredential("createTenant"); err != nil {
+		return nil, err
+	}
 	query := `
 		mutation CreateTenant($name: String!, $data: String, $domain: String) {
 			createTenant(name: $name, data: $data, domain: $domain) {
@@ -868,6 +904,9 @@ func (c *Client) UpdateTenant(ctx context.Context, tenantID string, params Updat
 	if params.Name == nil && params.Data == nil && params.Domain == nil {
 		return nil, fmt.Errorf("updateTenant: at least one field must be provided")
 	}
+	if err := c.requireOperatorCredential("updateTenant"); err != nil {
+		return nil, err
+	}
 	query := `
 		mutation UpdateTenant($tenant_id: String!, $name: String, $data: String, $domain: String) {
 			updateTenant(tenant_id: $tenant_id, name: $name, data: $data, domain: $domain) {
@@ -904,11 +943,45 @@ func (c *Client) UpdateTenant(ctx context.Context, tenantID string, params Updat
 	return mapToTenantCatalogSearchRow(row), nil
 }
 
+// RestoreTenant sets a soft-deleted catalog tenant back to active.
+// Content, owner, and relations are unchanged. A domain or owner clash returns an error.
+func (c *Client) RestoreTenant(ctx context.Context, tenantID string) (bool, error) {
+	tid := strings.TrimSpace(tenantID)
+	if tid == "" {
+		return false, fmt.Errorf("restoreTenant: tenantID is required")
+	}
+	if err := c.requireOperatorCredential("restoreTenant"); err != nil {
+		return false, err
+	}
+	query := `
+		mutation RestoreTenant($tenant_id: String!) {
+			restoreTenant(tenant_id: $tenant_id)
+		}
+	`
+	variables := map[string]interface{}{"tenant_id": tid}
+	response, err := c.executeGraphQL(ctx, query, variables)
+	if err != nil {
+		return false, fmt.Errorf("restoreTenant: %w", err)
+	}
+	data, ok := response.Data.(map[string]interface{})
+	if !ok {
+		return false, fmt.Errorf("unexpected response format")
+	}
+	okVal, ok := data["restoreTenant"].(bool)
+	if !ok {
+		return false, fmt.Errorf("unexpected restoreTenant response")
+	}
+	return okVal, nil
+}
+
 // DeleteTenant soft-deletes a tenant from the system catalog (status=deleted).
 func (c *Client) DeleteTenant(ctx context.Context, tenantID string) (bool, error) {
 	tid := strings.TrimSpace(tenantID)
 	if tid == "" {
 		return false, fmt.Errorf("deleteTenant: tenantID is required")
+	}
+	if err := c.requireOperatorCredential("deleteTenant"); err != nil {
+		return false, err
 	}
 	query := `
 		mutation DeleteTenant($tenant_id: String!) {
@@ -934,6 +1007,9 @@ func (c *Client) DeleteTenant(ctx context.Context, tenantID string) (bool, error
 // CreateUser creates a local-password project user via system GraphQL mutation createUser.
 // Duplicate email/phone project-wide returns stable engine validation errors.
 func (c *Client) CreateUser(ctx context.Context, projectID string, params CreateUserParams) (*User, error) {
+	if err := c.requireOperatorCredential("createUser"); err != nil {
+		return nil, err
+	}
 	if strings.TrimSpace(params.Password) == "" {
 		return nil, fmt.Errorf("createUser: password is required")
 	}
@@ -986,6 +1062,9 @@ func (c *Client) CreateUser(ctx context.Context, projectID string, params Create
 // UpdateUser updates a project user by id (system GraphQL updateUser). Project scope comes from the API key.
 // Duplicate email/phone project-wide returns stable engine validation errors.
 func (c *Client) UpdateUser(ctx context.Context, userID string, params UpdateUserParams) (*User, error) {
+	if err := c.requireOperatorCredential("updateUser"); err != nil {
+		return nil, err
+	}
 	if strings.TrimSpace(userID) == "" {
 		return nil, fmt.Errorf("updateUser: user id is required")
 	}
@@ -1038,6 +1117,9 @@ func (c *Client) UpdateUser(ctx context.Context, userID string, params UpdateUse
 
 // ResetUserPassword sets a new password for a project user (admin mutation resetUserPassword).
 func (c *Client) ResetUserPassword(ctx context.Context, userID, password string) (bool, error) {
+	if err := c.requireOperatorCredential("resetUserPassword"); err != nil {
+		return false, err
+	}
 	if strings.TrimSpace(userID) == "" {
 		return false, fmt.Errorf("resetUserPassword: user id is required")
 	}
@@ -1069,6 +1151,9 @@ func (c *Client) ResetUserPassword(ctx context.Context, userID, password string)
 
 // DeleteUser removes a project user by id (system GraphQL deleteUser). Project scope comes from the API key.
 func (c *Client) DeleteUser(ctx context.Context, userID string) (bool, error) {
+	if err := c.requireOperatorCredential("deleteUser"); err != nil {
+		return false, err
+	}
 	if strings.TrimSpace(userID) == "" {
 		return false, fmt.Errorf("deleteUser: user id is required")
 	}
@@ -1199,6 +1284,7 @@ func parseExpireAt(expireAt string) int64 {
 // =============================================================================
 
 /* // GetProjectDetails retrieves project details for the given project ID
+// GetProjectDetails calls the Apito API.
 func (c *Client) GetProjectDetails(ctx context.Context, projectID string) (*protobuff.Project, error) {
 	query := `
 		query GetProject($_id: String) {
@@ -1253,6 +1339,9 @@ func (c *Client) GetProjectDetails(ctx context.Context, projectID string) (*prot
 
 // GetSingleResource retrieves a single resource by model and ID, with optional single page data
 func (c *Client) GetSingleResource(ctx context.Context, model, _id string, singlePageData bool) (*types.DefaultDocumentStructure, error) {
+	if err := c.requireOperatorCredential("getSingleResource"); err != nil {
+		return nil, err
+	}
 	query := `
 		query GetSingleData($model: String, $_id: String!, $single_page_data: Boolean) {
 			getSingleData(model: $model, _id: $_id, single_page_data: $single_page_data) {
@@ -1309,6 +1398,9 @@ func (c *Client) GetSingleResource(ctx context.Context, model, _id string, singl
 
 // SearchResources searches for resources in the specified model using the provided filter
 func (c *Client) SearchResources(ctx context.Context, model string, filter map[string]interface{}, aggregate bool) (*types.SearchResult, error) {
+	if err := c.requireOperatorCredential("searchResources"); err != nil {
+		return nil, err
+	}
 	query := `
 		query GetModelData($model: String!, $page: Int, $limit: Int, $_key: JSON, $where: JSON, $search: String) {
 			getModelData(model: $model, page: $page, limit: $limit, _key: $_key, where: $where, search: $search) {
@@ -1384,6 +1476,9 @@ func (c *Client) SearchResources(ctx context.Context, model string, filter map[s
 
 // GetRelationDocuments retrieves related documents for the given ID and connection parameters
 func (c *Client) GetRelationDocuments(ctx context.Context, _id string, connection map[string]interface{}) (*types.SearchResult, error) {
+	if err := c.requireOperatorCredential("getRelationDocuments"); err != nil {
+		return nil, err
+	}
 	query := `
 		query GetModelData($model: String!, $page: Int, $limit: Int, $where: JSON, $search: String, $connection : ListAllDataDetailedOfAModelConnectionPayload) {
 			getModelData(model: $model, page: $page, limit: $limit, where: $where, search: $search, connection: $connection) {
@@ -1463,6 +1558,9 @@ func (c *Client) GetRelationDocuments(ctx context.Context, _id string, connectio
 
 // CreateNewResource creates a new resource in the specified model with the given data and connections
 func (c *Client) CreateNewResource(ctx context.Context, request *types.CreateAndUpdateRequest) (*types.DefaultDocumentStructure, error) {
+	if err := c.requireOperatorCredential("createNewResource"); err != nil {
+		return nil, err
+	}
 
 	if request.Model == "" {
 		return nil, fmt.Errorf("model is required")
@@ -1535,6 +1633,9 @@ func (c *Client) CreateNewResource(ctx context.Context, request *types.CreateAnd
 
 // UpdateResource updates an existing resource by model and ID, with optional single page data, data updates, and connection changes
 func (c *Client) UpdateResource(ctx context.Context, request *types.CreateAndUpdateRequest) (*types.DefaultDocumentStructure, error) {
+	if err := c.requireOperatorCredential("updateResource"); err != nil {
+		return nil, err
+	}
 	// fetch tenant_id from data if available
 
 	if request.ID == "" {
@@ -1620,6 +1721,9 @@ func (c *Client) UpdateResource(ctx context.Context, request *types.CreateAndUpd
 
 // DeleteResource deletes a resource by model and ID
 func (c *Client) DeleteResource(ctx context.Context, model, _id string) error {
+	if err := c.requireOperatorCredential("deleteResource"); err != nil {
+		return err
+	}
 	// Note: This is a placeholder implementation as the exact mutation wasn't found in the schema
 	// You would need to implement the actual deleteData mutation based on your GraphQL schema
 	query := `
@@ -1645,6 +1749,9 @@ func (c *Client) DeleteResource(ctx context.Context, model, _id string) error {
 
 // Debug is used to debug the plugin, you can pass data here to debug the plugin
 func (c *Client) Debug(ctx context.Context, stage string, data ...interface{}) (interface{}, error) {
+	if err := c.requireOperatorCredential("debug"); err != nil {
+		return nil, err
+	}
 	// Note: This is a placeholder implementation as the exact mutation wasn't found in the schema
 	// You would need to implement the actual debug mutation based on your GraphQL schema
 	query := `

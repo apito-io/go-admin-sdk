@@ -51,7 +51,7 @@ func TestUserCRUDTenantIDWiring(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	client := NewClient(Config{BaseURL: srv.URL, APIKey: "ak_test"})
+	client := NewClient(Config{BaseURL: srv.URL, AccessToken: "apt_test"})
 	ctx := context.Background()
 
 	t.Run("SearchUsers", func(t *testing.T) {
@@ -131,4 +131,52 @@ func TestUserCRUDTenantIDWiring(t *testing.T) {
 			t.Fatalf("expected validation error, got %v", err)
 		}
 	})
+}
+
+func TestLoginUserFacebookAccessTokenUsesCanonicalOptionalArgument(t *testing.T) {
+	var payload struct {
+		Query     string                 `json:"query"`
+		Variables map[string]interface{} `json:"variables"`
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatalf("read body: %v", err)
+		}
+		if err := json.Unmarshal(body, &payload); err != nil {
+			t.Fatalf("unmarshal: %v", err)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"data": map[string]interface{}{
+				"loginUser": map[string]interface{}{
+					"token": "project-jwt",
+					"user":  map[string]interface{}{"id": "user-1"},
+				},
+			},
+		})
+	}))
+	defer srv.Close()
+
+	client := NewClient(Config{BaseURL: srv.URL, APIKey: "ak_test"})
+	response, err := client.LoginUser(context.Background(), "project-1", LoginUserParams{
+		AuthMethod:  "facebook_access_token",
+		AccessToken: "facebook-user-token",
+	})
+	if err != nil {
+		t.Fatalf("LoginUser: %v", err)
+	}
+	if response.Token != "project-jwt" {
+		t.Fatalf("token = %q", response.Token)
+	}
+	if !strings.Contains(payload.Query, "$access_token: String") ||
+		!strings.Contains(payload.Query, "access_token: $access_token") {
+		t.Fatalf("canonical login query does not declare/use access_token: %s", payload.Query)
+	}
+	if payload.Variables["auth_method"] != "facebook_access_token" {
+		t.Fatalf("auth_method = %v", payload.Variables["auth_method"])
+	}
+	if payload.Variables["access_token"] != "facebook-user-token" {
+		t.Fatalf("access_token = %v", payload.Variables["access_token"])
+	}
 }

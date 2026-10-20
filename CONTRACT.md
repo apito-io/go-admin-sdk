@@ -39,6 +39,7 @@ All SDKs expose:
 - **GraphQL CRUD** (secured endpoint chainable builder + system fallback)
 - **REST storage**: `uploadFile`, `listFiles`, `deleteFiles` at `/files/upload|list|delete`
 - **Auth/admin**: `generateTenantToken`, `getTenants`, `getTenant`, `searchTenants`, `createTenant`, `updateTenant`, `deleteTenant`, `loginUser`, `googleOAuthState`, `searchUsers`, `searchTenantsByDomain`, `createUser`, `updateUser`, `resetUserPassword`, `deleteUser`
+- `LoginUserParams.AuthMethod: "facebook_access_token"` sends the native Facebook user token through the optional GraphQL `access_token` argument. The app secret remains on the engine.
 - **Tenant plan access (app-user JWT on secured/public)**: `myTenant` (includes `plan_tier`), `myEffectivePermissions` (role ∩ plan ceiling, quotas, grace). Helpers: plan tier parse/rank (`parsePlanTier` / `PlanAtLeast`), `canFromSnapshot`, `isPlanQuotaError`. JS also exports Casbin policy builder + React `CasbinProvider` via `@apito-io/js-admin-sdk/access` and `/react`.
 - **ApitoProjectPayment** (engine origin REST): `VerifyProjectPayment`, `GetTenantSubscription`, `CancelTenantSubscription` + `ProjectTenantSubscription` (`ManageURL` from engine response).
 

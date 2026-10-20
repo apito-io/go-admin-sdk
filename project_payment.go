@@ -13,43 +13,43 @@ import (
 
 // ProjectTenantSubscription is an ApitoProjectPayment ledger row (REST JSON).
 type ProjectTenantSubscription struct {
-	ID                      string `json:"id,omitempty"`
-	ProjectID               string `json:"project_id,omitempty"`
-	TenantID                string `json:"tenant_id,omitempty"`
-	PlanTier                string `json:"plan_tier,omitempty"`
-	Provider                string `json:"provider,omitempty"`
-	Status                  string `json:"status,omitempty"`
-	BillingContactUserID    string `json:"billing_contact_user_id,omitempty"`
-	ExternalSubscriptionID  string `json:"external_subscription_id,omitempty"`
-	ProductID               string `json:"product_id,omitempty"`
-	CurrentPeriodStart      string `json:"current_period_start,omitempty"`
-	CurrentPeriodEnd        string `json:"current_period_end,omitempty"`
-	CancelAt                string `json:"cancel_at,omitempty"`
-	CreatedBy               string `json:"created_by,omitempty"`
-	Notes                   string `json:"notes,omitempty"`
-	ManageURL               string `json:"manage_url,omitempty"`
-	CreatedAt               string `json:"created_at,omitempty"`
-	UpdatedAt               string `json:"updated_at,omitempty"`
+	ID                     string `json:"id,omitempty"`
+	ProjectID              string `json:"project_id,omitempty"`
+	TenantID               string `json:"tenant_id,omitempty"`
+	PlanTier               string `json:"plan_tier,omitempty"`
+	Provider               string `json:"provider,omitempty"`
+	Status                 string `json:"status,omitempty"`
+	BillingContactUserID   string `json:"billing_contact_user_id,omitempty"`
+	ExternalSubscriptionID string `json:"external_subscription_id,omitempty"`
+	ProductID              string `json:"product_id,omitempty"`
+	CurrentPeriodStart     string `json:"current_period_start,omitempty"`
+	CurrentPeriodEnd       string `json:"current_period_end,omitempty"`
+	CancelAt               string `json:"cancel_at,omitempty"`
+	CreatedBy              string `json:"created_by,omitempty"`
+	Notes                  string `json:"notes,omitempty"`
+	ManageURL              string `json:"manage_url,omitempty"`
+	CreatedAt              string `json:"created_at,omitempty"`
+	UpdatedAt              string `json:"updated_at,omitempty"`
 }
 
 // VerifyProjectPaymentParams configures POST .../providers/:provider/verify.
 type VerifyProjectPaymentParams struct {
-	ProjectID              string
-	TenantID               string
-	ProductID              string
-	PurchaseToken          string
-	PackageName            string
-	Provider               string // default google_play
-	BillingContactUserID   string
+	ProjectID            string
+	TenantID             string
+	ProductID            string
+	PurchaseToken        string
+	PackageName          string
+	Provider             string // default google_play
+	BillingContactUserID string
 }
 
 // CancelTenantSubscriptionParams configures POST .../subscriptions/cancel.
 type CancelTenantSubscriptionParams struct {
-	ProjectID        string
-	TenantID         string
-	Mode             string // cancel | revoke (default cancel)
-	SubscriptionID   string
-	ForceLedgerOnly  bool
+	ProjectID       string
+	TenantID        string
+	Mode            string // cancel | revoke (default cancel)
+	SubscriptionID  string
+	ForceLedgerOnly bool
 }
 
 // deriveSystemAPIBaseURL returns the engine origin (no /system/graphql or /secured/graphql).
@@ -74,7 +74,39 @@ func applyProjectPaymentAuth(req *http.Request, key string) {
 	req.Header.Set("X-Use-Cookies", "false")
 }
 
+func (c *Client) requireProjectPaymentCredential() error {
+	key := ""
+	if c != nil {
+		key = strings.TrimSpace(c.apiKey)
+	}
+	if key == "" || strings.HasPrefix(key, "ak_") {
+		return fmt.Errorf("OPERATOR_CREDENTIAL_REQUIRED: projectPayment requires an app-user session or an apt_ operator token")
+	}
+	if isRetiredTokenPrefix(key) {
+		return errTokenFormatRetired
+	}
+	return nil
+}
+
 func (c *Client) executeProjectPayment(ctx context.Context, method, path string, jsonBody interface{}, projectID, tenantID string) (*ProjectTenantSubscription, error) {
+	raw, err := c.executeProjectPaymentRaw(ctx, method, path, jsonBody, projectID, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	var out ProjectTenantSubscription
+	if len(raw) == 0 {
+		return &out, nil
+	}
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) executeProjectPaymentRaw(ctx context.Context, method, path string, jsonBody interface{}, projectID, tenantID string) ([]byte, error) {
+	if err := c.requireProjectPaymentCredential(); err != nil {
+		return nil, err
+	}
 	if isRetiredTokenPrefix(c.apiKey) {
 		return nil, errTokenFormatRetired
 	}
@@ -125,14 +157,7 @@ func (c *Client) executeProjectPayment(ctx context.Context, method, path string,
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
 		return nil, fmt.Errorf("project payment request failed (%d): %s", res.StatusCode, string(raw))
 	}
-	var out ProjectTenantSubscription
-	if len(raw) == 0 {
-		return &out, nil
-	}
-	if err := json.Unmarshal(raw, &out); err != nil {
-		return nil, err
-	}
-	return &out, nil
+	return raw, nil
 }
 
 // VerifyProjectPayment verifies a store purchase and upserts the ledger row.
@@ -192,4 +217,91 @@ func (c *Client) CancelTenantSubscription(ctx context.Context, params CancelTena
 		body["force_ledger_only"] = true
 	}
 	return c.executeProjectPayment(ctx, http.MethodPost, path, body, projectID, tenantID)
+}
+
+// SubmitCustomPaymentParams is the signed-in Custom provider payload.
+type SubmitCustomPaymentParams struct {
+	ProjectID        string
+	TenantID         string
+	Email            string
+	Plan             string
+	Amount           float64
+	Currency         string
+	PeriodMonths     int
+	PaymentReference string
+}
+
+// ProjectTenantInvoice is one row from the signed-in invoice list.
+type ProjectTenantInvoice struct {
+	ID             string  `json:"id,omitempty"`
+	SubscriptionID string  `json:"subscription_id,omitempty"`
+	TenantID       string  `json:"tenant_id,omitempty"`
+	Amount         float64 `json:"amount,omitempty"`
+	Currency       string  `json:"currency,omitempty"`
+	Status         string  `json:"status,omitempty"`
+	Provider       string  `json:"provider,omitempty"`
+	IssuedAt       string  `json:"issued_at,omitempty"`
+	PaidAt         string  `json:"paid_at,omitempty"`
+	CreatedAt      string  `json:"created_at,omitempty"`
+}
+
+// SubmitCustomPayment posts a Custom payment for the signed-in user.
+// A project that does not create subscribers returns a nil subscription.
+func (c *Client) SubmitCustomPayment(ctx context.Context, params SubmitCustomPaymentParams) (*ProjectTenantSubscription, error) {
+	projectID := strings.TrimSpace(params.ProjectID)
+	tenantID := strings.TrimSpace(params.TenantID)
+	if projectID == "" || tenantID == "" {
+		return nil, fmt.Errorf("project_id and tenant_id required")
+	}
+	path := fmt.Sprintf("/system/v1/project-payment/projects/%s/providers/custom/submit", projectID)
+	body := map[string]interface{}{
+		"email":             strings.TrimSpace(params.Email),
+		"plan":              strings.TrimSpace(params.Plan),
+		"amount":            params.Amount,
+		"currency":          strings.TrimSpace(params.Currency),
+		"period_months":     params.PeriodMonths,
+		"tenant_id":         tenantID,
+		"payment_reference": strings.TrimSpace(params.PaymentReference),
+	}
+	raw, err := c.executeProjectPaymentRaw(ctx, http.MethodPost, path, body, projectID, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	var probe map[string]interface{}
+	if err := json.Unmarshal(raw, &probe); err != nil {
+		return nil, err
+	}
+	id, _ := probe["id"].(string)
+	if strings.TrimSpace(id) == "" {
+		return nil, nil
+	}
+	var out ProjectTenantSubscription
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// ListSignedInTenantInvoices lists invoices for the signed-in tenant.
+func (c *Client) ListSignedInTenantInvoices(ctx context.Context, projectID, tenantID string) ([]ProjectTenantInvoice, error) {
+	projectID = strings.TrimSpace(projectID)
+	tenantID = strings.TrimSpace(tenantID)
+	if projectID == "" || tenantID == "" {
+		return nil, fmt.Errorf("project_id and tenant_id required")
+	}
+	path := fmt.Sprintf("/system/v1/project-payment/projects/%s/tenants/%s/invoices", projectID, tenantID)
+	raw, err := c.executeProjectPaymentRaw(ctx, http.MethodGet, path, nil, projectID, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	var payload struct {
+		Invoices []ProjectTenantInvoice `json:"invoices"`
+	}
+	if len(raw) == 0 {
+		return nil, nil
+	}
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return nil, err
+	}
+	return payload.Invoices, nil
 }

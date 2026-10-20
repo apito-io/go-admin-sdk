@@ -17,19 +17,21 @@ type User struct {
 // Password path (AuthMethod empty or "general"): set Password plus Email or Phone per project Authentication.
 // Google path (AuthMethod "google"): set Code and State from OAuth callback; optionally use GoogleOAuthState first.
 // Native mobile (AuthMethod "google_id_token"): set IDToken from google_sign_in (server client id).
+// Native mobile (AuthMethod "facebook_access_token"): set AccessToken from the Facebook SDK. The app secret stays on the engine.
 // SaaS per-tenant separate DB: set TenantID (required by engine).
 // Google paths: engine may auto-link a verified email to an existing user; errors include
 // "google email not verified", "google account already linked to another user", "multiple users matched this email".
 // On Cloudflare Workers v1, Google paths are unavailable ("google login is not available on Cloudflare Workers v1"); password login is supported.
 type LoginUserParams struct {
-	TenantID   string
-	Password   string
-	Email      string
-	Phone      string
-	AuthMethod string // optional; "", "general", "google", or "google_id_token"
-	Code       string // OAuth authorization code (Google)
-	State      string // OAuth state (from GoogleOAuthState or callback)
-	IDToken    string // Google ID token (native sign-in)
+	TenantID    string
+	Password    string
+	Email       string
+	Phone       string
+	AuthMethod  string // optional; "", "general", "google", "google_id_token", "facebook_access_token", "facebook", "github", "x", or "linkedin"
+	Code        string // OAuth authorization code
+	State       string // OAuth state (from OAuthState or callback)
+	IDToken     string // Google ID token (native sign-in)
+	AccessToken string // Facebook user access token (native sign-in)
 }
 
 // GoogleOAuthStateResponse is returned by googleOAuthState.
@@ -60,7 +62,8 @@ type UpdateUserParams struct {
 	TenantID *string
 }
 
-// LoginUserResponse is returned by loginUser (general or Google code flow).
+// LoginUserResponse is returned by loginUser for password, OAuth code, and
+// native provider token flows.
 type LoginUserResponse struct {
 	Token string `json:"token"`
 	User  *User  `json:"user"`
@@ -87,6 +90,7 @@ type TenantCatalogSearchRow struct {
 // MyTenant is public GraphQL myTenant for the authenticated app-user token.
 type MyTenant struct {
 	ID       string `json:"id"`
+	OwnerUID string `json:"owner_uid,omitempty"`
 	Name     string `json:"name,omitempty"`
 	Domain   string `json:"domain,omitempty"`
 	Status   string `json:"status,omitempty"`
@@ -182,8 +186,8 @@ type UploadFileParams struct {
 
 // DeleteFilesResponse is returned by DeleteFiles.
 type DeleteFilesResponse struct {
-	Success        bool     `json:"success"`
-	DeletedIDs     []string `json:"deleted_ids"`
-	StorageFailed  []string `json:"storage_failed,omitempty"`
-	Message        string   `json:"message,omitempty"`
+	Success       bool     `json:"success"`
+	DeletedIDs    []string `json:"deleted_ids"`
+	StorageFailed []string `json:"storage_failed,omitempty"`
+	Message       string   `json:"message,omitempty"`
 }
